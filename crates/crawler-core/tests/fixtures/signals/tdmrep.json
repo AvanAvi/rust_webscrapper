@@ -1,0 +1,4 @@
+[
+  {"location": "/images/*", "tdm-reservation": 1, "tdm-policy": "https://example.com/policy.json"},
+  {"location": "/*", "tdm-reservation": 0}
+]

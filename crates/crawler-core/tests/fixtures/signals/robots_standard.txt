@@ -1,0 +1,14 @@
+# Example robots.txt
+User-agent: *
+Disallow: /private/
+Allow: /private/public/
+Disallow: /*.pdf$
+Crawl-delay: 2.5
+Content-Signal: search=yes, ai-train=no
+
+User-agent: ProofCrawl
+User-agent: otherbot
+Disallow: /blocked
+Allow: /blocked/ok
+
+Sitemap: https://example.com/sitemap.xml

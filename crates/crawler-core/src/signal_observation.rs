@@ -1,11 +1,11 @@
 //! Records one opt-out signal as observed at one moment.
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::excerpt::Excerpt;
 use crate::signal_kind::SignalKind;
 use crate::signal_status::SignalStatus;
+use crate::signals::parsed_signal::ParsedSignal;
 use crate::timestamp::Timestamp;
 
 /// One observed signal source and what was parsed from it.
@@ -33,7 +33,7 @@ pub struct SignalObservation {
     /// Size-capped excerpt of the relevant part of the source.
     #[serde(rename = "excerpt", deserialize_with = "Option::deserialize")]
     pub opt_o_excerpt: Option<Excerpt>,
-    /// Structured result of parsing the source; `null` when nothing was parsed.
-    #[serde(rename = "parsed", deserialize_with = "Value::deserialize")]
-    pub e_parsed: Value,
+    /// Typed result of parsing the source; `null` when nothing was parsed (absent, unreachable).
+    #[serde(rename = "parsed", deserialize_with = "Option::deserialize")]
+    pub opt_e_parsed: Option<ParsedSignal>,
 }

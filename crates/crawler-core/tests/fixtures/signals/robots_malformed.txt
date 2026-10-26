@@ -1,0 +1,12 @@
+﻿Disallow: /before-any-agent
+this line has no colon
+USER-AGENT:	proofcrawl
+DISALLOW: /Secret # comment
+Disallow: nostart
+Crawl-delay: fast
+Content-Signal: search=maybe, ai-train=no, bogus
+Unknown-Key: whatever
+
+   
+# only comment
+allow: /Secret/open
