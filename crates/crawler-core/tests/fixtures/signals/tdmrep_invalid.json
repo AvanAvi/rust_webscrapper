@@ -1,0 +1,6 @@
+[
+  {"tdm-reservation": 1},
+  {"location": "/strings/*", "tdm-reservation": "1"},
+  {"location": "/floats/*", "tdm-reservation": 1.0},
+  {"location": "/*", "tdm-reservation": 1}
+]

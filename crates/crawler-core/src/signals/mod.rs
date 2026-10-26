@@ -1,0 +1,31 @@
+//! Parsers that turn machine-readable opt-out sources into typed findings.
+
+pub mod ai_txt_finding;
+pub mod ai_txt_parser;
+pub mod content_signal;
+pub mod content_signal_parser;
+pub mod crawl_delay_parser;
+pub mod glob_cursor;
+pub mod header_block;
+pub mod html_meta_extractor;
+pub mod parsed_signal;
+pub mod pattern_matcher;
+pub mod robots_finding;
+pub mod robots_group;
+pub mod robots_line_reader;
+pub mod robots_lines;
+pub mod robots_parser;
+pub mod robots_record;
+pub mod robots_rule;
+pub mod robots_tag_finding;
+pub mod robots_tag_parser;
+pub mod robots_tag_source;
+pub mod robots_txt;
+pub mod robots_txt_builder;
+pub mod rule_kind;
+pub mod signal_context;
+pub mod signal_parser;
+pub mod signal_set;
+pub mod tdmrep_finding;
+pub mod tdmrep_parser;
+pub mod tdmrep_source;

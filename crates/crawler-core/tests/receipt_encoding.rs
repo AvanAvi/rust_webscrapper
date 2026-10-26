@@ -4,8 +4,9 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use crawler_core::{
     CanonicalEncoder, Clock, DecisionRecord, Excerpt, FakeClock, FetchRecord, Hasher, IdSource,
-    IdentityRecord, Outcome, Purpose, Receipt, RedirectHop, SequentialIdSource, SignalKind,
-    SignalObservation, SignalStatus, TargetRecord, U_RECEIPT_SCHEMA_VERSION,
+    IdentityRecord, Outcome, ParsedSignal, Purpose, Receipt, RedirectHop, RobotsFinding,
+    RobotsRule, RuleKind, SequentialIdSource, SignalKind, SignalObservation, SignalStatus,
+    TargetRecord, U_RECEIPT_SCHEMA_VERSION,
 };
 use serde_json::{Value, json};
 use time::OffsetDateTime;
@@ -18,7 +19,7 @@ type BoxError = Box<dyn std::error::Error>;
 /// Canonical encoding of `sample_receipt()`; any format change must update this deliberately.
 const STR_EXPECTED_CANONICAL: &str = include_str!("fixtures/sample_receipt.canonical.json");
 /// SHA-256 of `STR_EXPECTED_CANONICAL`, cross-checked with `shasum -a 256`.
-const STR_EXPECTED_HASH: &str = "6b32a0f14a7010760df51768e10d7877f8a5fe5694c76afc5f82d10373a9d374";
+const STR_EXPECTED_HASH: &str = "decb3bb18443090610b4b190b4a0de62f2e4699cf55950d25b3fe164996405f8";
 
 /// Returns the fake clock all samples use (2026-10-26T12:34:56Z).
 fn sample_clock() -> Result<FakeClock, BoxError> {
@@ -37,7 +38,19 @@ fn sample_signal(o_clock: &FakeClock) -> Result<SignalObservation, BoxError> {
         opt_u_http_status: Some(200),
         opt_str_content_sha256: Some(Hasher::new().sha256_hex(b"User-agent: *\nAllow: /\n")),
         opt_o_excerpt: Some(Excerpt::new("User-agent: *\nAllow: /")),
-        e_parsed: json!({"groups": 1, "content_signal": null}),
+        opt_e_parsed: Some(ParsedSignal::RobotsTxt(RobotsFinding {
+            b_allowed: true,
+            opt_str_matched_agent: Some(String::from("*")),
+            opt_o_matched_rule: Some(RobotsRule {
+                e_kind: RuleKind::Allow,
+                str_pattern: String::from("/"),
+            }),
+            opt_u_crawl_delay_ms: None,
+            opt_o_content_signal: None,
+            u_groups: 1,
+            u_invalid_lines: 0,
+            b_truncated: false,
+        })),
     })
 }
 

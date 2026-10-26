@@ -1,0 +1,7 @@
+Content-Type: text/html
+tdm-reservation: 1
+tdm-policy: https://example.com/p.json
+X-Robots-Tag: noindex
+X-Robots-Tag: otherbot: noai
+X-Robots-Tag: proofcrawl: noimageai, max-snippet: 20
+X-Robots-Tag: unavailable_after: 25 Jun 2030 15:00:00 PST

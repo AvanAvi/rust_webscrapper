@@ -12,7 +12,9 @@ ignore = []
 [licenses]
 confidence-threshold = 0.93
 # Only licenses actually present; add new ones deliberately when a dependency needs them.
-allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+# ISC: scraper, ego-tree. MPL-2.0 (file-level copyleft; fine unmodified): selectors,
+# cssparser, cssparser-macros, dtoa-short, all pulled in by scraper.
+allow = ["MIT", "Apache-2.0", "Unicode-3.0", "ISC", "MPL-2.0"]
 private = { ignore = true }
 
 [bans]

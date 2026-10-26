@@ -1,0 +1,12 @@
+User-agent: proofcrawl
+Disallow: /page
+Crawl-delay: 1
+
+User-agent: *
+Disallow: /
+
+User-agent: PROOFCRAWL
+Allow: /page
+Crawl-delay: 3
+Content-Signal: ai-train=yes
+Content-Signal: ai-train=no, ai-input=yes

@@ -13,6 +13,7 @@ Every direct dependency is recorded here with the facts checked before adding it
 | uuid | =1.28.0 (`v4`, `serde`) | crawler-core | IDs. Pinned to 1.28.0 because 1.29.0 (2026-10-23) was under 14 days old | 1.89.0 | 2026-10-10 | Not yanked. RustSec: none |
 | time | 0.3.55 (`serde`, `formatting`, `parsing`, `std`, `macros`) | crawler-core | UTC instants and the fixed `Timestamp` format. Pulls `time-macros` 0.2.32 | 1.88.0 | 2026-08-01 | Not yanked. RustSec: RUSTSEC-2026-0009 (<0.3.47) and RUSTSEC-2020-0071 (0.1/0.2) do not apply |
 | proptest | 1.12.0 (dev) | crawler-core | Property tests for URL normalization | 1.88 | 2026-10-10 | Not yanked. RustSec: none |
+| scraper | =0.27.0 (default features off) | crawler-core | HTML parsing for TDMRep and robots `<meta>` elements. Pinned because 0.29.0 (2026-10-21) was under 14 days old | not declared | 2026-05-11 | Not yanked. RustSec: none for scraper, html5ever, selectors, cssparser, markup5ever, tendril. License ISC; pulls in MPL-2.0 crates (selectors, cssparser, cssparser-macros, dtoa-short) and ISC ego-tree, so ISC and MPL-2.0 were added to the deny.toml allow-list |
 
 Transitive dependencies pulled in by these: `proc-macro2` 1.0.107, `quote` 1.0.47 (2026-07-19), `unicode-ident` 1.0.27 (2026-10-12, license `(MIT OR Apache-2.0) AND Unicode-3.0`), and `thiserror-impl` 2.0.21.
 
@@ -20,7 +21,7 @@ The first lockfile was resolved against a stale local index and picked `quote` 1
 
 ## Supply-chain status
 
-`cargo audit` and `cargo deny check` both pass with no ignored advisories and no license exceptions. The license allow-list holds only the licenses actually present: MIT, Apache-2.0, and Unicode-3.0.
+`cargo audit` and `cargo deny check` both pass with no ignored advisories and no license exceptions. The license allow-list holds only the licenses actually present: MIT, Apache-2.0, Unicode-3.0, ISC, and MPL-2.0. MPL-2.0 (since F2, via scraper) is file-level copyleft: using the crates unmodified carries no obligation, but modified MPL files would have to be published.
 
 ## Toolchain and CI tools
 
