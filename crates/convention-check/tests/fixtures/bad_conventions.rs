@@ -17,6 +17,14 @@ pub struct Report {
     u_undocumented: u32,
 }
 
+/// Proxied only one way, so serde still serializes the fields directly.
+#[derive(Serialize, Deserialize)]
+#[serde(into = "String")]
+pub struct HalfProxy {
+    /// Field serialized under its prefixed name.
+    str_text: String,
+}
+
 /// Database row without sqlx renames.
 #[derive(FromRow)]
 pub struct Row {

@@ -145,8 +145,9 @@ impl<'a> FileChecker<'a> {
     /// Sets rename requirements from an item's derives and returns the previous ones.
     pub(crate) fn push_derives(&mut self, vec_o_attrs: &[Attribute]) -> (bool, bool) {
         let o_prev = (self.b_needs_serde_rename, self.b_needs_sqlx_rename);
-        self.b_needs_serde_rename = self.o_attrs.derives(vec_o_attrs, "Serialize")
-            || self.o_attrs.derives(vec_o_attrs, "Deserialize");
+        self.b_needs_serde_rename = (self.o_attrs.derives(vec_o_attrs, "Serialize")
+            || self.o_attrs.derives(vec_o_attrs, "Deserialize"))
+            && !self.o_attrs.is_serde_proxied(vec_o_attrs);
         self.b_needs_sqlx_rename = self.o_attrs.derives(vec_o_attrs, "FromRow");
         o_prev
     }

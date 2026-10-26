@@ -13,7 +13,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 const VEC_BAD_COUNTS: &[(ViolationKind, usize)] = &[
     (ViolationKind::MissingPrefix, 10),
     (ViolationKind::WrongPrefix, 5),
-    (ViolationKind::MissingRename, 4),
+    (ViolationKind::MissingRename, 5),
     (ViolationKind::MissingDoc, 4),
     (ViolationKind::FreeFunction, 1),
     (ViolationKind::TestName, 1),
@@ -38,6 +38,7 @@ const VEC_BAD_OFFENDERS: &[(ViolationKind, &str)] = &[
     (ViolationKind::WrongPrefix, "str_count"),
     (ViolationKind::MissingRename, "u_undocumented"),
     (ViolationKind::MissingRename, "sqlx field `u_id`"),
+    (ViolationKind::MissingRename, "serde field `str_text`"),
     (ViolationKind::MissingDoc, "Undocumented"),
     (ViolationKind::MissingDoc, "total"),
     (ViolationKind::FreeFunction, "helper"),
