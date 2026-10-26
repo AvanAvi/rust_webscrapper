@@ -1,0 +1,17 @@
+[package]
+name = "crawler-cli"
+description = "Command-line entry point `crawlerd` for server, worker, crawl, verify, and export."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "crawlerd"
+path = "src/main.rs"
+
+[dependencies]
+
+[lints]
+workspace = true

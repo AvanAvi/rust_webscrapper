@@ -1,0 +1,13 @@
+[package]
+name = "crawler-core"
+description = "Core domain types for URLs, receipts, canonical encoding, and clocks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

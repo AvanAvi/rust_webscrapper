@@ -1,0 +1,15 @@
+[package]
+name = "convention-check"
+description = "Fails the build when source files break the project coding convention."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+syn.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
