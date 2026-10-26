@@ -23,8 +23,9 @@ const U_MAX_DIRECTIVES: usize = 256;
 /// Longest directive kept, in bytes.
 const U_MAX_DIRECTIVE_BYTES: usize = 128;
 
-/// Page-level robots directive parser. A header value `bot: list` applies only when `bot`
-/// equals the product token; meta elements apply when named `robots` or the product token.
+/// Page-level robots directive parser. An unscoped header value applies to every crawler; a
+/// scoped value `bot: list` applies when `bot` is `*` or equals the product token (ASCII case
+/// ignored). Meta elements apply when named `robots` or the product token.
 #[derive(Debug, Clone, Copy)]
 pub struct RobotsTagParser {
     /// Publication method this parser reads.
@@ -69,9 +70,8 @@ impl RobotsTagParser {
         if b_is_directive {
             return Some(str_value.to_owned());
         }
-        str_name
-            .eq_ignore_ascii_case(str_token)
-            .then(|| str_rest.to_owned())
+        let b_applies = str_name == "*" || str_name.eq_ignore_ascii_case(str_token);
+        b_applies.then(|| str_rest.to_owned())
     }
 
     /// Builds the finding from comma-separated directive lists.

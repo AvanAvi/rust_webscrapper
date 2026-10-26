@@ -32,6 +32,21 @@ Everything runs on the toolchain pinned in `rust-toolchain.toml` (1.99.1). Never
 - Tests use only the local `mock-site`, never real third-party sites.
 - Prefer rustls. `deny.toml` bans `openssl`, `openssl-sys`, and `native-tls`.
 
+## Feature notes
+
+### F5 (SignalCollector)
+
+- Signal-file bodies (robots.txt, ai.txt, `/.well-known/tdmrep.json`) must be **stored keyed
+  by their content hash**, not only hashed. A receipt's `signals[].content_sha256` must
+  resolve to the exact bytes that were parsed, so it can be re-checked and re-parsed later.
+  Store each distinct body once (content-addressed), cap its size like the parsers do, and
+  keep it as long as any receipt references it.
+
+## Policy notes
+
+`docs/POLICY.md` records every interpretation that needs legal review. Update it whenever a
+parser or the policy evaluator makes a judgement call.
+
 ## Layout
 
 `crates/`: `crawler-core`, `crawler-fetch`, `crawler-ledger`, `crawler-store`, `crawler-server`, `crawler-worker`, `crawler-export`, `crawler-cli` (binary `crawlerd`), `mock-site`, `convention-check`.

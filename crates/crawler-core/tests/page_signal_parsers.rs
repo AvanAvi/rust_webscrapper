@@ -199,3 +199,44 @@ fn test_parser_kinds() {
     );
     assert_eq!(AiTxtParser::new().kind(), SignalKind::AiTxt);
 }
+
+/// X-Robots-Tag headers and whether `noai` must apply to the product token `ProofCrawl`.
+const VEC_SCOPE_CASES: &[(&str, bool)] = &[
+    ("X-Robots-Tag: noai\n", true),
+    ("X-Robots-Tag: *: noai\n", true),
+    ("X-Robots-Tag: googlebot: noai\n", false),
+    ("X-Robots-Tag: proofcrawl: noai\n", true),
+];
+
+#[test]
+fn test_x_robots_tag_unscoped() -> TestResult {
+    assert_scope(VEC_SCOPE_CASES[0])
+}
+
+#[test]
+fn test_x_robots_tag_star_scope() -> TestResult {
+    assert_scope(VEC_SCOPE_CASES[1])
+}
+
+#[test]
+fn test_x_robots_tag_other_bot_scope() -> TestResult {
+    assert_scope(VEC_SCOPE_CASES[2])
+}
+
+#[test]
+fn test_x_robots_tag_own_token_scope() -> TestResult {
+    assert_scope(VEC_SCOPE_CASES[3])
+}
+
+/// Checks that `noai` applies, or not, for one header case.
+fn assert_scope((str_header, b_applies): (&str, bool)) -> TestResult {
+    let o_finding =
+        robots_tag(RobotsTagSource::Header, str_header.as_bytes()).ok_or("wrong variant")?;
+    assert_eq!(o_finding.b_noai, b_applies, "{str_header:?}");
+    assert_eq!(
+        o_finding.vec_str_directives.contains(&String::from("noai")),
+        b_applies,
+        "{str_header:?}"
+    );
+    Ok(())
+}
