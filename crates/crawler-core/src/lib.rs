@@ -6,6 +6,7 @@ mod clock;
 mod core_error;
 mod decision_record;
 mod excerpt;
+mod excerpt_fields;
 mod fake_clock;
 mod fetch_record;
 mod hasher;

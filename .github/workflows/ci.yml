@@ -2,6 +2,7 @@ name: ci
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -9,10 +10,12 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_AUDIT_VERSION: 0.22.2
+  CARGO_DENY_VERSION: 0.20.2
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Installs the toolchain pinned in rust-toolchain.toml (with rustfmt and clippy).
@@ -24,10 +27,21 @@ jobs:
       - run: ./scripts/lint-probe.sh
 
   supply-chain:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - run: cargo install --locked cargo-audit@0.22.2 cargo-deny@0.20.2
+      # The cache key includes the toolchain because the tools are built with it.
+      - id: toolchain
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+      - id: tools-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-audit
+            ~/.cargo/bin/cargo-deny
+          key: cargo-tools-ubuntu-24.04-rust-${{ steps.toolchain.outputs.channel }}-audit-${{ env.CARGO_AUDIT_VERSION }}-deny-${{ env.CARGO_DENY_VERSION }}
+      - if: steps.tools-cache.outputs.cache-hit != 'true'
+        run: cargo install --locked "cargo-audit@${CARGO_AUDIT_VERSION}" "cargo-deny@${CARGO_DENY_VERSION}"
       - run: cargo audit
       - run: cargo deny check

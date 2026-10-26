@@ -123,6 +123,54 @@ impl Kind {
     }
 }
 
+/// Methods at the nesting and loop limits that must pass.
+pub struct Depth;
+
+impl Depth {
+    /// Uses exactly two levels: a loop containing a let-else, a match, and a closure.
+    pub fn at_limit(&self, vec_u_items: &[u32]) -> u32 {
+        let mut u_total = 0;
+        for u_item in vec_u_items {
+            let Some(u_next) = u_item.checked_add(1) else {
+                continue;
+            };
+            match u_next {
+                0 => u_total += 0,
+                _ => u_total += 1,
+            }
+            u_total += vec_u_items.iter().filter(|u_x| **u_x > 1).count() as u32;
+        }
+        u_total
+    }
+
+    /// Long `else if` chains stay at one level; the final `else` holds one more.
+    pub fn grade(&self, u_score: u32) -> &'static str {
+        if u_score > 90 {
+            "a"
+        } else if u_score > 80 {
+            "b"
+        } else if u_score > 70 {
+            "c"
+        } else if u_score > 60 {
+            "d"
+        } else {
+            if u_score > 50 { "e" } else { "f" }
+        }
+    }
+
+    /// Two sequential loops are fine; only nested loops break the rule.
+    pub fn two_loops(&self, vec_u_items: &[u32]) -> u32 {
+        let mut u_total = 0;
+        for u_item in vec_u_items {
+            u_total += u_item;
+        }
+        while u_total > 100 {
+            u_total /= 2;
+        }
+        u_total
+    }
+}
+
 impl Named for Record {
     /// Returns the record name.
     fn name(&self) -> &str {

@@ -62,6 +62,47 @@ impl Row {
     }
 }
 
+/// Methods that break the nesting-depth and loop-level rules once each.
+pub struct Nesting;
+
+impl Nesting {
+    /// Nests three control-flow levels: `for`, `if`, `if`.
+    pub fn deep_if(&self, vec_u_items: &[u32]) -> u32 {
+        let mut u_total = 0;
+        for u_item in vec_u_items {
+            if *u_item > 1 {
+                if *u_item > 2 {
+                    u_total += u_item;
+                }
+            }
+        }
+        u_total
+    }
+
+    /// Nests a `while` loop inside a `for` loop (depth 2, but two loop levels).
+    pub fn nested_loop(&self, vec_u_items: &[u32]) -> u32 {
+        let mut u_total = 0;
+        for u_item in vec_u_items {
+            while u_total < *u_item {
+                u_total += 1;
+            }
+        }
+        u_total
+    }
+
+    /// Puts a closure at depth three: `if`, `match`, closure.
+    pub fn deep_closure(&self, opt_u_limit: Option<u32>, vec_u_items: &[u32]) -> usize {
+        if vec_u_items.is_empty() {
+            match opt_u_limit {
+                Some(u_limit) => vec_u_items.iter().filter(|u_x| **u_x > u_limit).count(),
+                None => 0,
+            }
+        } else {
+            0
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
