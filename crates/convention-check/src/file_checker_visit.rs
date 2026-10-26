@@ -2,9 +2,9 @@
 
 use syn::visit::{self, Visit};
 use syn::{
-    Arm, ExprClosure, ExprForLoop, ExprLet, Field, ImplItemConst, ImplItemFn, ItemConst, ItemEnum,
-    ItemFn, ItemImpl, ItemMod, ItemStatic, ItemStruct, ItemTrait, Local, TraitItemConst,
-    TraitItemFn,
+    Arm, ExprClosure, ExprForLoop, ExprIf, ExprLet, ExprLoop, ExprMatch, ExprWhile, Field,
+    ImplItemConst, ImplItemFn, ItemConst, ItemEnum, ItemFn, ItemImpl, ItemMod, ItemStatic,
+    ItemStruct, ItemTrait, Local, TraitItemConst, TraitItemFn,
 };
 
 use crate::file_checker::FileChecker;
@@ -15,9 +15,11 @@ impl<'ast> Visit<'ast> for FileChecker<'_> {
         self.enter(o_item.sig.ident.to_string());
         self.check_free_fn(o_item);
         let b_prev = self.enter_test_if(&o_item.attrs);
+        let o_body_depth = self.begin_body();
         let o_saved = self.push_generics(&o_item.sig.generics);
         self.check_signature(&o_item.sig);
         visit::visit_item_fn(self, o_item);
+        self.end_body(o_body_depth);
         self.restore_scope(o_saved);
         self.restore_test(b_prev);
         self.leave();
@@ -36,9 +38,11 @@ impl<'ast> Visit<'ast> for FileChecker<'_> {
     fn visit_impl_item_fn(&mut self, o_item: &'ast ImplItemFn) {
         self.enter(o_item.sig.ident.to_string());
         self.require_doc(&o_item.attrs, "method");
+        let o_body_depth = self.begin_body();
         let o_saved = self.push_generics(&o_item.sig.generics);
         self.check_signature(&o_item.sig);
         visit::visit_impl_item_fn(self, o_item);
+        self.end_body(o_body_depth);
         self.restore_scope(o_saved);
         self.leave();
     }
@@ -47,9 +51,11 @@ impl<'ast> Visit<'ast> for FileChecker<'_> {
     fn visit_trait_item_fn(&mut self, o_item: &'ast TraitItemFn) {
         self.enter(o_item.sig.ident.to_string());
         self.require_doc(&o_item.attrs, "trait method");
+        let o_body_depth = self.begin_body();
         let o_saved = self.push_generics(&o_item.sig.generics);
         self.check_signature(&o_item.sig);
         visit::visit_trait_item_fn(self, o_item);
+        self.end_body(o_body_depth);
         self.restore_scope(o_saved);
         self.leave();
     }
@@ -121,16 +127,51 @@ impl<'ast> Visit<'ast> for FileChecker<'_> {
         self.restore_test(b_prev);
     }
 
-    /// Checks the names bound by a `let` statement.
+    /// Checks the names bound by a `let` statement and the depth of a `let ... else`.
     fn visit_local(&mut self, o_local: &'ast Local) {
         self.check_pat(&o_local.pat, None);
-        visit::visit_local(self, o_local);
+        if let Some(o_init) = &o_local.init {
+            self.walk_local_init(o_init);
+        }
     }
 
-    /// Checks the names bound by a `for` loop pattern.
+    /// Checks a `for` loop's bindings, nesting, and loop level.
     fn visit_expr_for_loop(&mut self, o_expr: &'ast ExprForLoop) {
         self.check_pat(&o_expr.pat, None);
-        visit::visit_expr_for_loop(self, o_expr);
+        self.visit_expr(&o_expr.expr);
+        self.enter_loop("for");
+        self.visit_block(&o_expr.body);
+        self.leave_loop();
+    }
+
+    /// Checks a `while` loop's nesting and loop level.
+    fn visit_expr_while(&mut self, o_expr: &'ast ExprWhile) {
+        self.visit_expr(&o_expr.cond);
+        self.enter_loop("while");
+        self.visit_block(&o_expr.body);
+        self.leave_loop();
+    }
+
+    /// Checks a `loop`'s nesting and loop level.
+    fn visit_expr_loop(&mut self, o_expr: &'ast ExprLoop) {
+        self.enter_loop("loop");
+        self.visit_block(&o_expr.body);
+        self.leave_loop();
+    }
+
+    /// Checks an `if` chain's nesting.
+    fn visit_expr_if(&mut self, o_expr: &'ast ExprIf) {
+        self.walk_if(o_expr);
+    }
+
+    /// Checks a `match`'s nesting and its arms.
+    fn visit_expr_match(&mut self, o_expr: &'ast ExprMatch) {
+        self.visit_expr(&o_expr.expr);
+        self.enter_nesting("match");
+        for o_arm in &o_expr.arms {
+            self.visit_arm(o_arm);
+        }
+        self.leave_nesting();
     }
 
     /// Checks closure parameter names, using the type when one is written.
@@ -138,7 +179,9 @@ impl<'ast> Visit<'ast> for FileChecker<'_> {
         for e_pat in &o_expr.inputs {
             self.check_pat(e_pat, None);
         }
-        visit::visit_expr_closure(self, o_expr);
+        self.enter_nesting("closure");
+        self.visit_expr(&o_expr.body);
+        self.leave_nesting();
     }
 
     /// Checks the names bound by a `match` arm pattern.

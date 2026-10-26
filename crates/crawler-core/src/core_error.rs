@@ -21,6 +21,12 @@ pub enum CoreError {
         /// The URL with user info, query, and fragment removed; the original is never kept.
         str_redacted_url: String,
     },
+    /// Decoded excerpt fields are inconsistent with each other.
+    #[error("invalid excerpt: {str_reason}")]
+    InvalidExcerpt {
+        /// What was inconsistent.
+        str_reason: String,
+    },
     /// A time value is not a UTC instant in the one accepted format.
     #[error("invalid timestamp: {str_reason}")]
     InvalidTimestamp {

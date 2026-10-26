@@ -58,13 +58,55 @@ fn test_random_ids_are_version_4_and_distinct() {
 }
 
 #[test]
-fn test_excerpt_is_capped_at_a_char_boundary() -> TestResult {
+fn test_excerpt_is_capped_at_a_char_boundary_and_marked() -> TestResult {
     let str_long = "a".repeat(U_MAX_EXCERPT_BYTES - 1) + "\u{e9}tail";
     let o_excerpt = Excerpt::new(&str_long);
     assert_eq!(o_excerpt.as_str().len(), U_MAX_EXCERPT_BYTES - 1);
-    let o_decoded: Excerpt = serde_json::from_str(&serde_json::to_string(&str_long)?)?;
+    assert!(o_excerpt.is_truncated());
+    assert_eq!(o_excerpt.original_bytes(), str_long.len() as u64);
+    let o_decoded: Excerpt = serde_json::from_str(&serde_json::to_string(&o_excerpt)?)?;
     assert_eq!(o_decoded, o_excerpt);
     Ok(())
+}
+
+#[test]
+fn test_short_excerpt_is_complete() -> TestResult {
+    let o_excerpt = Excerpt::new("Allow: /");
+    assert!(!o_excerpt.is_truncated());
+    let str_json = serde_json::to_string(&o_excerpt)?;
+    assert_eq!(
+        str_json,
+        "{\"text\":\"Allow: /\",\"truncated\":false,\"original_bytes\":8}"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_excerpt_at_exact_cap_is_not_truncated() {
+    let str_exact = "b".repeat(U_MAX_EXCERPT_BYTES);
+    let o_excerpt = Excerpt::new(&str_exact);
+    assert!(!o_excerpt.is_truncated());
+    assert_eq!(o_excerpt.as_str().len(), U_MAX_EXCERPT_BYTES);
+}
+
+#[test]
+fn test_inconsistent_excerpts_are_rejected() {
+    let str_cap_text = "c".repeat(U_MAX_EXCERPT_BYTES);
+    let vec_str_bad = [
+        String::from("{\"text\":\"abc\",\"truncated\":true,\"original_bytes\":5000}"),
+        String::from("{\"text\":\"abc\",\"truncated\":false,\"original_bytes\":4}"),
+        String::from("{\"text\":\"abc\",\"truncated\":true,\"original_bytes\":3}"),
+        format!("{{\"text\":\"{str_cap_text}\",\"truncated\":false,\"original_bytes\":9000}}"),
+        String::from("{\"text\":\"abc\",\"truncated\":false,\"original_bytes\":3,\"x\":1}"),
+        String::from("{\"text\":\"abc\",\"truncated\":false}"),
+        String::from("\"plain string\""),
+    ];
+    for str_bad in &vec_str_bad {
+        assert!(
+            serde_json::from_str::<Excerpt>(str_bad).is_err(),
+            "accepted {str_bad}"
+        );
+    }
 }
 
 #[test]

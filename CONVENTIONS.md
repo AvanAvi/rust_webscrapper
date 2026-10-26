@@ -85,8 +85,15 @@ impl PolicyEvaluator {
 
 **Checked prefixes:** `let` bindings, function and method parameters, struct and variant fields, consts, statics, `for` loop bindings, closure parameters (typed and untyped), `match` arm bindings, and `if let` / `while let` / let-chain bindings. Identifiers starting with an uppercase letter inside patterns (`None`, unit variants, constants) are not bindings and are skipped.
 
+**Nesting depth and loop level are enforced** inside every function body, including test code:
+- Each of these adds one nesting level: `if`, `else`, `match`, `for`, `while`, `loop`, a closure body, and the `else` block of `let ... else`.
+- An `else if` stays at the level of its `if`. Plain, `unsafe`, and `async` blocks add nothing.
+- A construct at level 3 or deeper is reported as `nesting-too-deep`.
+- A loop inside another loop is reported as `nested-loop`, even when a closure sits between them (`for` → closure → `loop`).
+- A nested function or method body starts again at level 0.
+
 **Enforced by review, not by tooling:**
-- Nesting depth, one loop level per method, match-arm length, and iterator-chain length.
+- Match-arm length and iterator-chain length.
 - Doc comments starting with a verb.
 - Bindings inside macro invocations such as `matches!(x, Some(v))`, because macro bodies are opaque tokens.
 - Enum values for enums declared outside the workspace. Only those in the fixed list in `type_classifier.rs` require `e_`; any other external enum is accepted with `o_`.

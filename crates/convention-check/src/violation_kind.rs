@@ -17,6 +17,10 @@ pub enum ViolationKind {
     TestName,
     /// A file is longer than the line limit.
     FileTooLong,
+    /// Control flow is nested deeper than the limit inside a function body.
+    NestingTooDeep,
+    /// A loop is nested inside another loop in the same function body.
+    NestedLoop,
 }
 
 impl ViolationKind {
@@ -30,6 +34,8 @@ impl ViolationKind {
             Self::FreeFunction => "free-function",
             Self::TestName => "test-name",
             Self::FileTooLong => "file-too-long",
+            Self::NestingTooDeep => "nesting-too-deep",
+            Self::NestedLoop => "nested-loop",
         }
     }
 }

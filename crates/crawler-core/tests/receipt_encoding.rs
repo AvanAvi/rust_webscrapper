@@ -18,7 +18,7 @@ type BoxError = Box<dyn std::error::Error>;
 /// Canonical encoding of `sample_receipt()`; any format change must update this deliberately.
 const STR_EXPECTED_CANONICAL: &str = include_str!("fixtures/sample_receipt.canonical.json");
 /// SHA-256 of `STR_EXPECTED_CANONICAL`, cross-checked with `shasum -a 256`.
-const STR_EXPECTED_HASH: &str = "b6e8ecb54328e1f991adf91f3458d848a3d46180aa83bc928c77a3f7e04c4f2b";
+const STR_EXPECTED_HASH: &str = "6b32a0f14a7010760df51768e10d7877f8a5fe5694c76afc5f82d10373a9d374";
 
 /// Returns the fake clock all samples use (2026-10-26T12:34:56Z).
 fn sample_clock() -> Result<FakeClock, BoxError> {

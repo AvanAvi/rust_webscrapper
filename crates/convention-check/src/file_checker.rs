@@ -4,6 +4,7 @@ use syn::visit::Visit;
 use syn::{Attribute, Field, FnArg, Generics, Ident, ItemFn, ItemImpl, Pat, Signature, Type};
 
 use crate::attr_inspector::AttrInspector;
+use crate::depth_tracker::DepthTracker;
 use crate::parsed_source::ParsedSource;
 use crate::pat_ident_collector::PatIdentCollector;
 use crate::prefix_rules::{NameIssue, PrefixRules};
@@ -34,6 +35,8 @@ pub struct FileChecker<'a> {
     b_needs_sqlx_rename: bool,
     /// Names of enclosing items, outermost first.
     vec_str_path: Vec<String>,
+    /// Nesting and loop depth inside the current function body.
+    pub(crate) o_depth: DepthTracker,
 }
 
 impl<'a> FileChecker<'a> {
@@ -49,6 +52,7 @@ impl<'a> FileChecker<'a> {
             b_needs_serde_rename: false,
             b_needs_sqlx_rename: false,
             vec_str_path: Vec::new(),
+            o_depth: DepthTracker::new(),
         }
     }
 
@@ -265,7 +269,7 @@ impl<'a> FileChecker<'a> {
     }
 
     /// Records a violation at the current item path.
-    fn report(&mut self, e_kind: ViolationKind, str_detail: String) {
+    pub(crate) fn report(&mut self, e_kind: ViolationKind, str_detail: String) {
         let str_location = match self.vec_str_path.is_empty() {
             true => String::from("<file>"),
             false => self.vec_str_path.join("::"),

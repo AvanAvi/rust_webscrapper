@@ -17,6 +17,8 @@ const VEC_BAD_COUNTS: &[(ViolationKind, usize)] = &[
     (ViolationKind::MissingDoc, 4),
     (ViolationKind::FreeFunction, 1),
     (ViolationKind::TestName, 1),
+    (ViolationKind::NestingTooDeep, 2),
+    (ViolationKind::NestedLoop, 1),
 ];
 
 /// Offenders in `bad_conventions.rs` that must each be named by a violation.
@@ -43,6 +45,9 @@ const VEC_BAD_OFFENDERS: &[(ViolationKind, &str)] = &[
     (ViolationKind::MissingDoc, "total"),
     (ViolationKind::FreeFunction, "helper"),
     (ViolationKind::TestName, "checks_total"),
+    (ViolationKind::NestingTooDeep, "deep_if"),
+    (ViolationKind::NestingTooDeep, "deep_closure"),
+    (ViolationKind::NestedLoop, "nested_loop"),
 ];
 
 /// Checks a fixture's text reported under a non-test path, so every rule applies.
@@ -176,6 +181,32 @@ fn test_workspace_tree_is_clean() -> TestResult {
     assert!(
         vec_o_violations.is_empty(),
         "workspace violations: {vec_o_violations:#?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_nested_function_bodies_reset_depth() -> TestResult {
+    let str_text = "//! Depth.\n/// T.\npub struct T;\nimpl T {\n    /// M.\n    pub fn m(&self) {\n        if true {\n            if true {\n                /// I.\n                struct I;\n                impl I {\n                    /// N.\n                    fn n(&self) {\n                        if true {}\n                    }\n                }\n            }\n        }\n    }\n}\n";
+    let vec_o_violations = check_text("src/depth.rs", str_text)?;
+    assert!(vec_o_violations.is_empty(), "{vec_o_violations:#?}");
+    Ok(())
+}
+
+#[test]
+fn test_loop_inside_closure_inside_loop_is_nested() -> TestResult {
+    let str_text = "//! Loops.\n/// T.\npub struct T;\nimpl T {\n    /// M.\n    pub fn m(&self, vec_u_items: &[u32]) {\n        for u_a in vec_u_items {\n            vec_u_items.iter().for_each(|u_b| loop {});\n        }\n    }\n}\n";
+    let vec_o_violations = check_text("src/loops.rs", str_text)?;
+    let map_u_counts = count_kinds(&vec_o_violations);
+    assert_eq!(
+        map_u_counts.get(&ViolationKind::NestedLoop),
+        Some(&1),
+        "{vec_o_violations:#?}"
+    );
+    assert_eq!(
+        map_u_counts.get(&ViolationKind::NestingTooDeep),
+        Some(&1),
+        "{vec_o_violations:#?}"
     );
     Ok(())
 }
