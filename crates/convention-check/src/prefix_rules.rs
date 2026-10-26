@@ -63,6 +63,10 @@ impl PrefixRules {
         if str_bare.is_empty() || str_bare == "self" || self.has_any_prefix(str_bare) {
             return None;
         }
+        // Uppercase names in patterns are variants or constants (`None`, `U_MAX`), not bindings.
+        if str_bare.starts_with(|ch_c: char| ch_c.is_uppercase()) {
+            return None;
+        }
         Some((
             ViolationKind::MissingPrefix,
             format!("`{str_name}` has no type prefix"),

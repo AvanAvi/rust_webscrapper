@@ -1,7 +1,7 @@
 //! Collects every name bound by a pattern.
 
 use syn::visit::{self, Visit};
-use syn::{Pat, PatIdent};
+use syn::{Expr, Pat, PatIdent};
 
 /// Visitor that records the identifiers a pattern binds.
 #[derive(Debug, Clone, Default)]
@@ -29,4 +29,7 @@ impl<'ast> Visit<'ast> for PatIdentCollector {
         self.vec_str_names.push(o_ident.ident.to_string());
         visit::visit_pat_ident(self, o_ident);
     }
+
+    /// Skips expressions inside patterns, such as guards; they are checked separately.
+    fn visit_expr(&mut self, _e_expr: &'ast Expr) {}
 }

@@ -2,8 +2,9 @@
 
 use syn::visit::{self, Visit};
 use syn::{
-    Field, ImplItemConst, ImplItemFn, ItemConst, ItemEnum, ItemFn, ItemImpl, ItemMod, ItemStatic,
-    ItemStruct, ItemTrait, Local, TraitItemConst, TraitItemFn,
+    Arm, ExprClosure, ExprForLoop, ExprLet, Field, ImplItemConst, ImplItemFn, ItemConst, ItemEnum,
+    ItemFn, ItemImpl, ItemMod, ItemStatic, ItemStruct, ItemTrait, Local, TraitItemConst,
+    TraitItemFn,
 };
 
 use crate::file_checker::FileChecker;
@@ -124,5 +125,31 @@ impl<'ast> Visit<'ast> for FileChecker<'_> {
     fn visit_local(&mut self, o_local: &'ast Local) {
         self.check_pat(&o_local.pat, None);
         visit::visit_local(self, o_local);
+    }
+
+    /// Checks the names bound by a `for` loop pattern.
+    fn visit_expr_for_loop(&mut self, o_expr: &'ast ExprForLoop) {
+        self.check_pat(&o_expr.pat, None);
+        visit::visit_expr_for_loop(self, o_expr);
+    }
+
+    /// Checks closure parameter names, using the type when one is written.
+    fn visit_expr_closure(&mut self, o_expr: &'ast ExprClosure) {
+        for e_pat in &o_expr.inputs {
+            self.check_pat(e_pat, None);
+        }
+        visit::visit_expr_closure(self, o_expr);
+    }
+
+    /// Checks the names bound by a `match` arm pattern.
+    fn visit_arm(&mut self, o_arm: &'ast Arm) {
+        self.check_pat(&o_arm.pat, None);
+        visit::visit_arm(self, o_arm);
+    }
+
+    /// Checks the names bound by `if let`, `while let`, and let chains.
+    fn visit_expr_let(&mut self, o_expr: &'ast ExprLet) {
+        self.check_pat(&o_expr.pat, None);
+        visit::visit_expr_let(self, o_expr);
     }
 }

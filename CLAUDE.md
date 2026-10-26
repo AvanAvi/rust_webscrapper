@@ -9,10 +9,11 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 cargo run --locked -p convention-check          # checks the whole tree, exit 1 on violations
-cargo audit && cargo deny check                 # CI only until the tools are installed locally
+./scripts/lint-probe.sh                         # proves every configured lint fires
+cargo audit && cargo deny check
 ```
 
-The toolchain is pinned in `rust-toolchain.toml` (1.99.1). If that exact toolchain is not installed, `RUSTUP_TOOLCHAIN=stable` runs the same compiler, provided `stable` is 1.99.1.
+Everything runs on the toolchain pinned in `rust-toolchain.toml` (1.99.1). Never override it with `RUSTUP_TOOLCHAIN`.
 
 ## Convention summary (full text: CONVENTIONS.md)
 

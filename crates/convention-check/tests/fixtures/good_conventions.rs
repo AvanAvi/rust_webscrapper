@@ -81,6 +81,38 @@ impl Record {
     }
 }
 
+impl Kind {
+    /// Sums name lengths using loop, closure, match, and let-chain bindings.
+    pub fn total_len(&self, vec_str_names: &[String], opt_u_limit: Option<usize>) -> usize {
+        let mut u_total = 0;
+        for (u_index, str_name) in vec_str_names.iter().enumerate() {
+            u_total += u_index + str_name.len();
+        }
+        let u_long = vec_str_names.iter().filter(|str_n| str_n.len() > 3).count();
+        let u_typed: usize = vec_str_names.iter().map(|str_n: &String| str_n.len()).sum();
+        if let Some(u_limit) = opt_u_limit
+            && u_limit < u_total
+        {
+            return u_limit;
+        }
+        match (self, opt_u_limit) {
+            (Kind::Beta { by_payload }, _) => by_payload.len(),
+            (Kind::Alpha, Some(u_cap)) if vec_str_names.iter().any(|str_x| str_x.len() > u_cap) => u_cap,
+            (_, None) => u_total + u_long + u_typed,
+            _ => U_MAX_ITEMS,
+        }
+    }
+
+    /// Drains a stack of names with `while let`.
+    pub fn drain(&self, mut vec_str_stack: Vec<String>) -> usize {
+        let mut u_count = 0;
+        while let Some(str_last) = vec_str_stack.pop() {
+            u_count += str_last.len();
+        }
+        u_count
+    }
+}
+
 impl Named for Record {
     /// Returns the record name.
     fn name(&self) -> &str {

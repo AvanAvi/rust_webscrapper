@@ -11,8 +11,8 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 /// Expected violation count per kind for `bad_conventions.rs`.
 const VEC_BAD_COUNTS: &[(ViolationKind, usize)] = &[
-    (ViolationKind::MissingPrefix, 4),
-    (ViolationKind::WrongPrefix, 4),
+    (ViolationKind::MissingPrefix, 10),
+    (ViolationKind::WrongPrefix, 5),
     (ViolationKind::MissingRename, 4),
     (ViolationKind::MissingDoc, 4),
     (ViolationKind::FreeFunction, 1),
@@ -25,6 +25,13 @@ const VEC_BAD_OFFENDERS: &[(ViolationKind, &str)] = &[
     (ViolationKind::MissingPrefix, "`count`"),
     (ViolationKind::MissingPrefix, "`value`"),
     (ViolationKind::MissingPrefix, "`doubled`"),
+    (ViolationKind::MissingPrefix, "`name`"),
+    (ViolationKind::MissingPrefix, "`n`"),
+    (ViolationKind::MissingPrefix, "`size`"),
+    (ViolationKind::MissingPrefix, "`limit`"),
+    (ViolationKind::MissingPrefix, "`found`"),
+    (ViolationKind::MissingPrefix, "`x`"),
+    (ViolationKind::WrongPrefix, "b_flag"),
     (ViolationKind::WrongPrefix, "STR_LIMIT"),
     (ViolationKind::WrongPrefix, "str_total"),
     (ViolationKind::WrongPrefix, "u_id"),

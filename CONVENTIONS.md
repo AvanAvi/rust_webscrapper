@@ -79,15 +79,27 @@ impl PolicyEvaluator {
 
 3.7 Tooling that enforces this (created in F0): `clippy.toml` with `cognitive-complexity-threshold = 8`, `too-many-arguments-threshold = 5`, `too-many-lines-threshold = 25`; workspace lints denying `unwrap_used`, `expect_used`, `panic`, `todo`, `unsafe_code`, `missing_docs`; and a `convention-check` crate (uses `syn`) that fails on: a missing or wrong prefix for annotated types (params, fields, consts, annotated lets), an unprefixed inferred `let`, a missing `rename` on serde or sqlx fields, a method with no doc comment, a free function outside `main` and tests, and a file over 300 lines.
 
-## What the checker can and cannot see
+## What the tooling can and cannot see
 
-`convention-check` works on syntax only. These rules are enforced by review, not by tooling:
+`convention-check` works on syntax only.
+
+**Checked prefixes:** `let` bindings, function and method parameters, struct and variant fields, consts, statics, `for` loop bindings, closure parameters (typed and untyped), `match` arm bindings, and `if let` / `while let` / let-chain bindings. Identifiers starting with an uppercase letter inside patterns (`None`, unit variants, constants) are not bindings and are skipped.
+
+**Enforced by review, not by tooling:**
 - Nesting depth, one loop level per method, match-arm length, and iterator-chain length.
 - Doc comments starting with a verb.
-- Prefixes on closure parameters, `for` bindings, and `match` bindings. Only `let` bindings, parameters, fields, consts, and statics are checked.
-- Enums from outside the workspace are known only from a fixed list in `type_classifier.rs`. Values of other external enums need `e_`, but the checker accepts `o_`.
+- Bindings inside macro invocations such as `matches!(x, Some(v))`, because macro bodies are opaque tokens.
+- Enum values for enums declared outside the workspace. Only those in the fixed list in `type_classifier.rs` require `e_`; any other external enum is accepted with `o_`.
+- Type aliases, which are not resolved: an alias of `Vec<u8>` is treated as its own name and expects `o_`.
 
-Deliberate exemptions:
+**Clippy's cognitive complexity is coarser than the spec's.** Clippy adds roughly one point per branch, loop, and boolean operator, with no extra weight for nesting. A deeply nested function can therefore score at or under 8 even when it reads as complex. `scripts/lint-probe.sh`, which runs in CI, proves the lint is active and fires above 8. Nesting is still reviewed by hand.
+
+**Deliberate exemptions:**
 - `#[serde(skip)]` and `#[serde(flatten)]` fields do not need `rename`, because they produce no JSON name of their own.
 - Doc comments are not required inside `#[cfg(test)]` modules or under `tests/`.
 - Free functions are allowed in `tests/` files, `#[cfg(test)]` code, `#[test]` functions, and the top-level `main` of `main.rs` or `build.rs`.
+- Helper functions in integration tests return `Result` and use `?`, because clippy's `allow-expect-in-tests` does not cover them.
+
+## Proving the lints fire
+
+`./scripts/lint-probe.sh` copies `scripts/fixtures/lint_probe.rs` into a scratch crate, together with the workspace lints, `clippy.toml`, and the toolchain file. It fails unless all nine configured lints fire: `cognitive_complexity`, `too_many_lines`, `too_many_arguments`, `unwrap_used`, `expect_used`, `panic`, `todo`, `unsafe_code`, and `missing_docs`.

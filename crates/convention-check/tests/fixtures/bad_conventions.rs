@@ -34,6 +34,26 @@ impl Report {
     }
 }
 
+impl Row {
+    /// Walks names with badly named loop, closure, and match bindings.
+    pub fn walk(&self, vec_str_names: &[String], opt_u_limit: Option<u32>) -> usize {
+        for name in vec_str_names {
+            println!("{name}");
+        }
+        let u_short = vec_str_names.iter().filter(|n| n.len() < 3).count();
+        let u_sizes: usize = vec_str_names.iter().map(|size: &String| size.len()).sum();
+        let u_flags = vec_str_names.iter().filter(|b_flag: &&String| b_flag.is_empty()).count();
+        if let Some(limit) = opt_u_limit {
+            return limit as usize;
+        }
+        match opt_u_limit {
+            Some(found) if vec_str_names.iter().any(|x| x.len() == found as usize) => 1,
+            None => u_short + u_sizes + u_flags,
+            _ => 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
