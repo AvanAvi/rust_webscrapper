@@ -1,2 +1,52 @@
-//! Core domain types for URLs, receipts, canonical encoding, and clocks.
+//! Core domain types for URLs, receipts, canonical encoding, hashing, clocks, and IDs.
 #![forbid(unsafe_code)]
+
+mod canonical_encoder;
+mod clock;
+mod core_error;
+mod decision_record;
+mod excerpt;
+mod fake_clock;
+mod fetch_record;
+mod hasher;
+mod id_source;
+mod identity_record;
+mod outcome;
+mod percent_normalizer;
+mod purpose;
+mod random_id_source;
+mod receipt;
+mod redirect_hop;
+mod sequential_id_source;
+mod signal_kind;
+mod signal_observation;
+mod signal_status;
+mod system_clock;
+mod target_record;
+mod timestamp;
+mod url_normalizer;
+
+pub use canonical_encoder::CanonicalEncoder;
+pub use clock::Clock;
+pub use core_error::CoreError;
+pub use decision_record::DecisionRecord;
+pub use excerpt::{Excerpt, U_MAX_EXCERPT_BYTES};
+pub use fake_clock::FakeClock;
+pub use fetch_record::FetchRecord;
+pub use hasher::Hasher;
+pub use id_source::IdSource;
+pub use identity_record::IdentityRecord;
+pub use outcome::Outcome;
+pub use percent_normalizer::PercentNormalizer;
+pub use purpose::Purpose;
+pub use random_id_source::RandomIdSource;
+pub use receipt::{Receipt, U_RECEIPT_SCHEMA_VERSION};
+pub use redirect_hop::RedirectHop;
+pub use sequential_id_source::SequentialIdSource;
+pub use signal_kind::SignalKind;
+pub use signal_observation::SignalObservation;
+pub use signal_status::SignalStatus;
+pub use system_clock::SystemClock;
+pub use target_record::TargetRecord;
+pub use timestamp::Timestamp;
+pub use url_normalizer::UrlNormalizer;

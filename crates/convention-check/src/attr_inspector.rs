@@ -44,6 +44,15 @@ impl AttrInspector {
             .any(|str_word| self.has_tool_word(vec_o_attrs, "serde", str_word))
     }
 
+    /// Returns whether serde never sees the fields: `transparent`, or `into` plus `from`/`try_from`.
+    pub fn is_serde_proxied(&self, vec_o_attrs: &[Attribute]) -> bool {
+        let b_into = self.has_tool_word(vec_o_attrs, "serde", "into");
+        let b_from = ["from", "try_from"]
+            .iter()
+            .any(|str_word| self.has_tool_word(vec_o_attrs, "serde", str_word));
+        self.has_tool_word(vec_o_attrs, "serde", "transparent") || (b_into && b_from)
+    }
+
     /// Returns whether a `tool(...)` attribute contains a given word.
     pub fn has_tool_word(&self, vec_o_attrs: &[Attribute], str_tool: &str, str_word: &str) -> bool {
         vec_o_attrs

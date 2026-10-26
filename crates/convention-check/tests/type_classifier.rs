@@ -32,6 +32,8 @@ const VEC_CASES: &[(&str, &str)] = &[
     ("Vec<String>", "vec_"),
     ("&[Receipt]", "vec_"),
     ("HashMap<String, u32>", "map_"),
+    ("serde_json::Map<String, Value>", "map_"),
+    ("Timestamp", "dt_"),
     ("BTreeSet<String>", "set_"),
     ("Option<u32>", "opt_"),
     ("Result<u32, Error>", "res_"),

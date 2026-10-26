@@ -45,6 +45,16 @@ pub struct Record {
     mtx_cache: Arc<Mutex<Vec<String>>>,
 }
 
+/// Value serialized through `String`, so its fields never reach JSON.
+#[derive(Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct Stamp {
+    /// Parsed instant.
+    dt_value: OffsetDateTime,
+    /// Canonical text.
+    str_text: String,
+}
+
 /// Behaviour shared by records.
 pub trait Named {
     /// Returns the display name.
