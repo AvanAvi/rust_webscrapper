@@ -1,0 +1,13 @@
+[package]
+name = "crawler-export"
+description = "WARC and dataset-manifest exporters linked to receipts."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
