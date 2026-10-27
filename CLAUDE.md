@@ -30,6 +30,7 @@ Everything runs on the toolchain pinned in `rust-toolchain.toml` (1.99.1). Never
 
 - Only approved dependencies. Before adding one: check crates.io (current version, `rust-version`, not yanked, ≥14 days old), RustSec, and docs.rs for the exact locked version, then record it in `DEPENDENCIES.md`.
 - Tests use only the local `mock-site`, never real third-party sites.
+- Commit messages contain only the owner's message text: no Co-Authored-By trailer, no Claude/Anthropic mention, author and committer = the configured git identity (attribution disabled in the gitignored `.claude/settings.local.json`).
 - Prefer rustls. `deny.toml` bans `openssl`, `openssl-sys`, and `native-tls`.
 
 ## Feature notes

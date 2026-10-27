@@ -21,6 +21,12 @@ pub enum CoreError {
         /// The URL with user info, query, and fragment removed; the original is never kept.
         str_redacted_url: String,
     },
+    /// A crawler identity is malformed or impersonates another crawler.
+    #[error("invalid crawler identity: {str_reason}")]
+    InvalidIdentity {
+        /// What was wrong.
+        str_reason: String,
+    },
     /// Decoded excerpt fields are inconsistent with each other.
     #[error("invalid excerpt: {str_reason}")]
     InvalidExcerpt {

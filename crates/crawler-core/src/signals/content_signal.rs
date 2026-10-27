@@ -2,6 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::purpose::Purpose;
+
 /// Content-Signal preferences; `None` means the site stated no preference for that use.
 ///
 /// Syntax per Cloudflare's Content Signals Policy (2025-09-24): one `Content-Signal:` line
@@ -22,6 +24,26 @@ pub struct ContentSignal {
 }
 
 impl ContentSignal {
+    /// Returns the stated preference for a purpose; archiving has no Content-Signal key.
+    pub fn for_purpose(&self, e_purpose: Purpose) -> Option<bool> {
+        match e_purpose {
+            Purpose::Search => self.opt_b_search,
+            Purpose::AiInput => self.opt_b_ai_input,
+            Purpose::AiTrain => self.opt_b_ai_train,
+            Purpose::Archive => None,
+        }
+    }
+
+    /// Returns the Content-Signal key for a purpose, if it has one.
+    pub fn key_for(e_purpose: Purpose) -> Option<&'static str> {
+        match e_purpose {
+            Purpose::Search => Some("search"),
+            Purpose::AiInput => Some("ai-input"),
+            Purpose::AiTrain => Some("ai-train"),
+            Purpose::Archive => None,
+        }
+    }
+
     /// Returns both preferences combined; a `no` from either side wins.
     pub fn merge(&self, o_other: &Self) -> Self {
         Self {

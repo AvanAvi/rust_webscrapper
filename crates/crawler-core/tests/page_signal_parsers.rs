@@ -240,3 +240,21 @@ fn assert_scope((str_header, b_applies): (&str, bool)) -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn test_x_robots_tag_multiple_scopes_in_one_value() -> TestResult {
+    let str_header = "X-Robots-Tag: googlebot: noindex, proofcrawl: noai\n";
+    let o_finding =
+        robots_tag(RobotsTagSource::Header, str_header.as_bytes()).ok_or("wrong variant")?;
+    assert_eq!(
+        o_finding.vec_str_directives,
+        ["noai"],
+        "googlebot's noindex must not apply; ours must"
+    );
+    assert!(o_finding.b_noai);
+    let str_mixed = "X-Robots-Tag: nofollow, otherbot: noindex, noarchive, *: noimageai\n";
+    let o_mixed =
+        robots_tag(RobotsTagSource::Header, str_mixed.as_bytes()).ok_or("wrong variant")?;
+    assert_eq!(o_mixed.vec_str_directives, ["nofollow", "noimageai"]);
+    Ok(())
+}

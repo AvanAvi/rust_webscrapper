@@ -12,3 +12,6 @@ debug/
 /data/
 *.key
 .env
+
+# Personal Claude Code settings (never committed)
+.claude/settings.local.json
