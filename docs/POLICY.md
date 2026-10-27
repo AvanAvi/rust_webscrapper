@@ -105,11 +105,12 @@ Content-Signal value affects it.
   commercial AI training. We extend it to AI input as the safer reading.
 - **`noimageai` denies AI uses of whole pages,** as the spec requires, even though it names
   images. This is a deliberately strict reading.
-- **`noindex` and `noarchive` are recorded but not enforced.** One could argue that
-  `noindex` should deny search and `noarchive` should deny archiving. v1 enforces only the
-  opt-outs the spec names.
-- **Unreachable ai.txt or TDMRep sources do not deny.** Only robots.txt has an RFC rule for
-  unreachability. A stricter reading would deny AI uses until the source can be checked.
+- **`noindex` and `noarchive` are recorded but not enforced** (owner decision, 2026-10-27).
+  They stay visible: the parsed finding lists every directive, and the decision reason names
+  the directives v1 keeps but does not enforce.
+- **Unreachable ai.txt or TDMRep sources do not deny** (owner decision, 2026-10-27). Only
+  robots.txt has an RFC rule for unreachability. The decision reason says plainly that the
+  signal could not be checked.
 - **Page-level signals** (X-Robots-Tag, meta robots, TDMRep header and meta) are known only
   after the page is fetched. The evaluator applies them whenever they are in the signal set;
   how the pipeline handles them after a fetch is decided in F7.

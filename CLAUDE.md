@@ -10,6 +10,10 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 cargo run --locked -p convention-check          # checks the whole tree, exit 1 on violations
 ./scripts/lint-probe.sh                         # proves every configured lint fires
+cargo test -p crawler-fetch --features test-policy --locked   # mock-site scenarios (loopback policy)
+./scripts/check-no-test-policy.sh               # crawlerd never enables test-policy
+./scripts/check-no-test-policy-selftest.sh      # proves that check fails on a binary enabling it
+./scripts/check-fetch-deps.sh                   # axum never enters crawler-fetch's normal deps
 cargo audit && cargo deny check
 ```
 

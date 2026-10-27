@@ -130,7 +130,10 @@ impl SignalJudge {
             (false, false) => None,
         };
         let Some((e_rule, str_directive)) = opt_o_hit else {
-            return self.verdict(o_obs, None, self.o_writer.no_reservation(o_obs));
+            let str_reason = self
+                .o_writer
+                .robots_tag_none(o_obs, &o_found.vec_str_directives);
+            return self.verdict(o_obs, None, str_reason);
         };
         if !e_purpose.is_ai_use() {
             return self.verdict(o_obs, None, self.o_writer.not_for_purpose(o_obs, e_purpose));

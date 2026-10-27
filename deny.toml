@@ -13,8 +13,9 @@ ignore = []
 confidence-threshold = 0.93
 # Only licenses actually present; add new ones deliberately when a dependency needs them.
 # ISC: scraper, ego-tree. MPL-2.0 (file-level copyleft; fine unmodified): selectors,
-# cssparser, cssparser-macros, dtoa-short, all pulled in by scraper.
-allow = ["MIT", "Apache-2.0", "Unicode-3.0", "ISC", "MPL-2.0"]
+# cssparser, cssparser-macros, dtoa-short, all pulled in by scraper. BSD-3-Clause: brotli,
+# alloc-*, subtle, matchit, aws-lc-sys. CDLA-Permissive-2.0: webpki-root-certs (CA bundle data).
+allow = ["MIT", "Apache-2.0", "Unicode-3.0", "ISC", "MPL-2.0", "BSD-3-Clause", "CDLA-Permissive-2.0"]
 private = { ignore = true }
 
 [bans]
