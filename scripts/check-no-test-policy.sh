@@ -1,19 +1,31 @@
 #!/usr/bin/env bash
-# Fails if the crawlerd binary's dependency graph enables crawler-fetch's `test-policy`
-# feature (the loopback-only address policy used by tests). `cargo tree -i crawler-fetch
-# -e features` lists the features crawler-fetch gets in crawlerd's graph.
+# Fails if a binary's dependency graph enables crawler-fetch's `test-policy` feature (the
+# loopback-only address policy used by tests).
+#
+# How features are read: `cargo tree -i crawler-fetch -e normal,features` prints, for the
+# given package, every feature of crawler-fetch that is enabled anywhere in its normal
+# dependency graph (directly or through intermediate crates) as a line such as
+#   crawler-fetch feature "test-policy"
+#
+# Usage: check-no-test-policy.sh [MANIFEST_PATH PACKAGE]
+#   defaults: this repository's Cargo.toml and crawler-cli (the crawlerd binary), with --locked.
 set -euo pipefail
-cd "$(dirname "$0")/.."
-if ! OUTPUT="$(cargo tree --locked -p crawler-cli -e normal,features -i crawler-fetch 2>&1)"; then
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MANIFEST="${1:-$ROOT/Cargo.toml}"
+PACKAGE="${2:-crawler-cli}"
+LOCK_FLAG=()
+if [[ $# -eq 0 ]]; then LOCK_FLAG=(--locked); fi
+
+if ! OUTPUT="$(cargo tree ${LOCK_FLAG[@]+"${LOCK_FLAG[@]}"} --manifest-path "$MANIFEST" -p "$PACKAGE" -e normal,features -i crawler-fetch 2>&1)"; then
   if grep -q "did not match any packages" <<<"$OUTPUT"; then
-    echo "check-no-test-policy: crawlerd does not depend on crawler-fetch (yet)"
+    echo "check-no-test-policy: $PACKAGE does not depend on crawler-fetch"
     exit 0
   fi
   echo "$OUTPUT"
   exit 1
 fi
-if grep -q 'feature "test-policy"' <<<"$OUTPUT"; then
-  echo "crawlerd enables crawler-fetch/test-policy; it must not"
+if grep -q 'crawler-fetch feature "test-policy"' <<<"$OUTPUT"; then
+  echo "check-no-test-policy: $PACKAGE enables crawler-fetch/test-policy; it must not"
   exit 1
 fi
-echo "check-no-test-policy: crawlerd does not enable test-policy"
+echo "check-no-test-policy: $PACKAGE does not enable test-policy"

@@ -27,6 +27,8 @@ jobs:
       - run: cargo clippy -p crawler-fetch --features test-policy --all-targets --locked -- -D warnings
       - run: cargo test -p crawler-fetch --features test-policy --locked
       - run: ./scripts/check-no-test-policy.sh
+      - run: ./scripts/check-no-test-policy-selftest.sh
+      - run: ./scripts/check-fetch-deps.sh
       - run: cargo run --locked -p convention-check
       - run: ./scripts/lint-probe.sh
 

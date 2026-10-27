@@ -1,5 +1,7 @@
 //! Serves misbehaving responses that a normal HTTP server cannot: slow drip, lying length, endless body.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -17,17 +19,20 @@ const DUR_DRIP_INTERVAL: Duration = Duration::from_millis(300);
 pub struct RawServer {
     /// Request log shared with the HTTP server.
     o_log: RequestLog,
+    /// TCP connections accepted, counted before anything is read.
+    o_accepted: Arc<AtomicUsize>,
 }
 
 impl RawServer {
     /// Creates a raw server.
-    pub fn new(o_log: RequestLog) -> Self {
-        Self { o_log }
+    pub fn new(o_log: RequestLog, o_accepted: Arc<AtomicUsize>) -> Self {
+        Self { o_log, o_accepted }
     }
 
     /// Accepts connections until the listener fails.
     pub async fn serve(self, o_listener: TcpListener) {
         while let Ok((o_stream, _)) = o_listener.accept().await {
+            self.o_accepted.fetch_add(1, Ordering::SeqCst);
             tokio::spawn(self.clone().handle(o_stream));
         }
     }

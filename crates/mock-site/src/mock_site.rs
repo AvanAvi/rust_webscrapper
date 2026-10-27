@@ -1,6 +1,8 @@
 //! Starts the mock site on 127.0.0.1 and exposes its request log.
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use axum::Router;
 use axum::extract::Request;
@@ -23,6 +25,8 @@ pub struct MockSite {
     u_raw_port: u16,
     /// Requests received by both servers.
     o_log: RequestLog,
+    /// TCP connections accepted by the raw server.
+    o_raw_accepted: Arc<AtomicUsize>,
     /// HTTP server task.
     jh_http: JoinHandle<()>,
     /// Raw server task.
@@ -41,8 +45,11 @@ impl MockSite {
         let jh_http = tokio::spawn(async move {
             let _ = axum::serve(o_http_listener, o_app).await;
         });
-        let jh_raw = tokio::spawn(RawServer::new(o_log.clone()).serve(o_raw_listener));
+        let o_raw_accepted = Arc::new(AtomicUsize::new(0));
+        let o_raw = RawServer::new(o_log.clone(), Arc::clone(&o_raw_accepted));
+        let jh_raw = tokio::spawn(o_raw.serve(o_raw_listener));
         Ok(Self {
+            o_raw_accepted,
             u_port,
             u_raw_port,
             o_log,
@@ -74,6 +81,11 @@ impl MockSite {
     /// Returns a URL on the raw server for a virtual host and path.
     pub fn raw_url(&self, str_host: &str, str_path: &str) -> String {
         format!("http://{str_host}:{}{str_path}", self.u_raw_port)
+    }
+
+    /// Returns how many TCP connections the raw server has accepted, whether or not a request followed.
+    pub fn raw_connections(&self) -> usize {
+        self.o_raw_accepted.load(Ordering::SeqCst)
     }
 
     /// Returns every request received so far.

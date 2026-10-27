@@ -61,6 +61,11 @@ async fn test_oversized_raw_bodies_are_capped() -> TestResult {
             "{str_host}"
         );
     }
+    assert_eq!(
+        o_site.raw_connections(),
+        2,
+        "the counter sees connections the policy allows"
+    );
     Ok(())
 }
 

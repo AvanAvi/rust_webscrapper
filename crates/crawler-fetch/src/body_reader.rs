@@ -1,7 +1,7 @@
 //! Reads response bodies within the size cap and decodes them with a ratio check.
 
-use axum::http::header::CONTENT_ENCODING;
-use axum::http::{Request, Response};
+use http::header::CONTENT_ENCODING;
+use http::{Request, Response};
 use tower::{ServiceExt, service_fn};
 use tower_http::decompression::Decompression;
 
