@@ -23,8 +23,8 @@ const U_MAX_DIRECTIVES: usize = 256;
 /// Longest directive kept, in bytes.
 const U_MAX_DIRECTIVE_BYTES: usize = 128;
 
-/// Page-level robots directive parser. An unscoped header value applies to every crawler; a
-/// scoped value `bot: list` applies when `bot` is `*` or equals the product token (ASCII case
+/// Page-level robots directive parser. Unscoped header directives apply to every crawler; a
+/// `bot:` segment applies when `bot` is `*` or equals the product token (ASCII case
 /// ignored). Meta elements apply when named `robots` or the product token.
 #[derive(Debug, Clone, Copy)]
 pub struct RobotsTagParser {
@@ -44,7 +44,7 @@ impl RobotsTagParser {
         o_headers
             .values("x-robots-tag")
             .into_iter()
-            .filter_map(|str_value| self.scoped_list(str_value, str_token))
+            .flat_map(|str_value| self.scoped_directives(str_value, str_token))
             .collect()
     }
 
@@ -59,19 +59,40 @@ impl RobotsTagParser {
             .collect()
     }
 
-    /// Returns the directive list of one header value if it applies to the token.
-    fn scoped_list(&self, str_value: &str, str_token: &str) -> Option<String> {
-        let Some((str_head, str_rest)) = str_value.split_once(':') else {
-            return Some(str_value.to_owned());
-        };
-        let str_name = str_head.trim();
-        let b_is_directive = str_name.contains([',', ' '])
-            || VEC_STR_VALUED_DIRECTIVES.contains(&str_name.to_ascii_lowercase().as_str());
-        if b_is_directive {
-            return Some(str_value.to_owned());
+    /// Returns the directives of one header value that apply to the token.
+    ///
+    /// Directives before any `bot:` prefix apply to every crawler. A `bot:` prefix scopes the
+    /// directives after it, up to the next prefix, so `googlebot: noindex, proofcrawl: noai`
+    /// gives `noai` to `proofcrawl` only.
+    fn scoped_directives(&self, str_value: &str, str_token: &str) -> Vec<String> {
+        let mut b_applies = true;
+        let mut vec_str_out = Vec::new();
+        for str_part in str_value.split(',') {
+            let str_directive = match self.scope_prefix(str_part) {
+                Some((str_agent, str_rest)) => {
+                    b_applies = str_agent == "*" || str_agent.eq_ignore_ascii_case(str_token);
+                    str_rest
+                }
+                None => str_part,
+            };
+            if b_applies {
+                vec_str_out.push(str_directive.to_owned());
+            }
         }
-        let b_applies = str_name == "*" || str_name.eq_ignore_ascii_case(str_token);
-        b_applies.then(|| str_rest.to_owned())
+        vec_str_out
+    }
+
+    /// Splits `bot: rest` into the agent and the rest when the part starts with a user-agent
+    /// name; directives whose own syntax uses a colon (such as `max-snippet: 20`) are not agents.
+    fn scope_prefix<'p>(&self, str_part: &'p str) -> Option<(&'p str, &'p str)> {
+        let (str_head, str_rest) = str_part.split_once(':')?;
+        let str_name = str_head.trim();
+        let b_agent_like = !str_name.is_empty()
+            && str_name.bytes().all(|u_byte| {
+                u_byte.is_ascii_alphanumeric() || matches!(u_byte, b'_' | b'-' | b'*')
+            });
+        let b_valued = VEC_STR_VALUED_DIRECTIVES.contains(&str_name.to_ascii_lowercase().as_str());
+        (b_agent_like && !b_valued).then_some((str_name, str_rest))
     }
 
     /// Builds the finding from comma-separated directive lists.
