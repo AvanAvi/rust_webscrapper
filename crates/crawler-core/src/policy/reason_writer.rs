@@ -141,6 +141,22 @@ impl ReasonWriter {
         )
     }
 
+    /// Describes page-level robots directives without noai/noimageai, listing what was recorded.
+    pub fn robots_tag_none(
+        &self,
+        o_obs: &SignalObservation,
+        vec_str_directives: &[String],
+    ) -> String {
+        if vec_str_directives.is_empty() {
+            return format!("{} contains no robots directives.", self.source(o_obs));
+        }
+        let str_list = vec_str_directives.join(", ");
+        format!(
+            "{} contains no noai or noimageai directive; it records \"{str_list}\", which policy v1 keeps but does not enforce.",
+            self.source(o_obs)
+        )
+    }
+
     /// Describes a present signal that reserves nothing.
     pub fn no_reservation(&self, o_obs: &SignalObservation) -> String {
         format!("{} does not reserve this URL.", self.source(o_obs))
@@ -165,7 +181,7 @@ impl ReasonWriter {
     /// Describes a non-robots signal source that could not be retrieved.
     pub fn unreachable(&self, o_obs: &SignalObservation) -> String {
         format!(
-            "{} could not be retrieved ({}); only signals that were actually observed can deny, so it has no effect.",
+            "{} could not be checked because it could not be retrieved ({}). Policy v1 lets only signals that were actually observed deny, so this unchecked signal has no effect on the decision.",
             self.source(o_obs),
             self.status(o_obs)
         )

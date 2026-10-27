@@ -14,6 +14,11 @@ Every direct dependency is recorded here with the facts checked before adding it
 | time | 0.3.55 (`serde`, `formatting`, `parsing`, `std`, `macros`) | crawler-core | UTC instants and the fixed `Timestamp` format. Pulls `time-macros` 0.2.32 | 1.88.0 | 2026-08-01 | Not yanked. RustSec: RUSTSEC-2026-0009 (<0.3.47) and RUSTSEC-2020-0071 (0.1/0.2) do not apply |
 | proptest | 1.12.0 (dev) | crawler-core | Property tests for URL normalization | 1.88 | 2026-10-10 | Not yanked. RustSec: none |
 | scraper | =0.27.0 (default features off) | crawler-core | HTML parsing for TDMRep and robots `<meta>` elements. Pinned because 0.29.0 (2026-10-21) was under 14 days old | not declared | 2026-05-11 | Not yanked. RustSec: none for scraper, html5ever, selectors, cssparser, markup5ever, tendril. License ISC; pulls in MPL-2.0 crates (selectors, cssparser, cssparser-macros, dtoa-short) and ISC ego-tree, so ISC and MPL-2.0 were added to the deny.toml allow-list |
+| reqwest | 0.13.5 (default features off; `rustls`) | crawler-fetch | HTTP client. No `system-proxy`, no `http2`, no built-in decompression (so encoded bytes can be counted), `retry::never()`, `no_proxy()` | 1.85.0 | 2026-09-08 | Not yanked. RustSec: none. TLS is rustls 0.23.46 on aws-lc-rs: no OpenSSL, but `aws-lc-sys` compiles AWS-LC's C code |
+| tokio | =1.53.3 | crawler-fetch, mock-site | Async runtime. Pinned below 1.54 (1.54.0 yanked; 1.54.1 under 14 days old) | 1.71 | 2026-10-13 | Not yanked. RustSec: RUSTSEC-2026-0386 patched in 1.53.3; RUSTSEC-2026-0384 affects 1.54.0 only |
+| tower | 0.5.3 (`util`) | crawler-fetch | `service_fn` and `oneshot` to run tower-http's decoder | 1.64.0 | 2026-01-12 | Not yanked. RustSec: none |
+| tower-http | 0.6.11 | crawler-fetch (`decompression-gzip/deflate/br`), mock-site (`compression-gzip`) | Decoding with our own cap and ratio check; gzip in the mock. Same version reqwest already uses (0.7.1 would duplicate it) | 1.64 | 2026-05-18 | Not yanked. RustSec: none. zstd left out (C library) |
+| axum | 0.8.9 (default features off; `tokio`, `http1`) | mock-site; crawler-fetch for the `axum::http` re-export only | Mock HTTP server; `http::Request`/`Response` types for the decoder without adding the unlisted `http` crate | 1.80 | 2026-04-14 | Not yanked. RustSec: none |
 
 Transitive dependencies pulled in by these: `proc-macro2` 1.0.107, `quote` 1.0.47 (2026-07-19), `unicode-ident` 1.0.27 (2026-10-12, license `(MIT OR Apache-2.0) AND Unicode-3.0`), and `thiserror-impl` 2.0.21.
 
@@ -21,7 +26,7 @@ The first lockfile was resolved against a stale local index and picked `quote` 1
 
 ## Supply-chain status
 
-`cargo audit` and `cargo deny check` both pass with no ignored advisories and no license exceptions. The license allow-list holds only the licenses actually present: MIT, Apache-2.0, Unicode-3.0, ISC, and MPL-2.0. MPL-2.0 (since F2, via scraper) is file-level copyleft: using the crates unmodified carries no obligation, but modified MPL files would have to be published.
+`cargo audit` and `cargo deny check` both pass with no ignored advisories and no license exceptions. The license allow-list holds only the licenses actually present: MIT, Apache-2.0, Unicode-3.0, ISC, MPL-2.0, BSD-3-Clause, and CDLA-Permissive-2.0. MPL-2.0 (since F2, via scraper) is file-level copyleft: using the crates unmodified carries no obligation, but modified MPL files would have to be published. BSD-3-Clause (since F4: brotli, alloc-*, subtle, matchit, aws-lc-sys) and CDLA-Permissive-2.0 (webpki-root-certs, the Mozilla CA list as data) are permissive.
 
 ## Toolchain and CI tools
 

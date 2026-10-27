@@ -99,3 +99,44 @@ fn test_identity_rejects_spoofing_and_bad_values() {
         );
     }
 }
+
+#[test]
+fn test_unchecked_signal_reason_says_so_plainly() -> TestResult {
+    let mut o_obs = present(
+        SignalKind::TdmrepWellKnown,
+        "https://example.com/.well-known/tdmrep.json",
+        ParsedSignal::Tdmrep(Default::default()),
+    )?;
+    o_obs.e_status = SignalStatus::Unreachable;
+    o_obs.opt_u_http_status = Some(503);
+    o_obs.opt_e_parsed = None;
+    let o_decision =
+        PolicyEvaluator::for_purpose(Purpose::AiTrain).evaluate(&SignalSet::new(vec![o_obs]));
+    let str_reason = &o_decision.reasons()[0];
+    println!("{str_reason}");
+    assert_eq!(o_decision.outcome(), crawler_core::Outcome::Allow);
+    assert_eq!(
+        str_reason,
+        "The TDMRep file at https://example.com/.well-known/tdmrep.json could not be checked because it could not be retrieved (HTTP 503). Policy v1 lets only signals that were actually observed deny, so this unchecked signal has no effect on the decision."
+    );
+    Ok(())
+}
+
+#[test]
+fn test_unenforced_robots_directives_stay_visible() -> TestResult {
+    let e_tag = crawler_core::RobotsTagParser::new(crawler_core::RobotsTagSource::Header).parse(
+        b"X-Robots-Tag: noindex, noarchive",
+        &SignalContext::new("proofcrawl", "/"),
+    );
+    let o_obs = present(SignalKind::XRobotsTag, "https://example.com/page", e_tag)?;
+    let str_reason = PolicyEvaluator::for_purpose(Purpose::Search)
+        .evaluate(&SignalSet::new(vec![o_obs]))
+        .reasons()
+        .remove(0);
+    println!("{str_reason}");
+    assert!(
+        str_reason.contains("\"noarchive, noindex\"") && str_reason.contains("does not enforce"),
+        "{str_reason}"
+    );
+    Ok(())
+}

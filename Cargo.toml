@@ -20,6 +20,11 @@ uuid = { version = "=1.28.0", features = ["v4", "serde"] }
 time = { version = "0.3.55", features = ["serde", "formatting", "parsing", "std", "macros"] }
 proptest = "1.12.0"
 scraper = { version = "=0.27.0", default-features = false }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
+tokio = { version = "=1.53.3", default-features = false, features = ["rt-multi-thread", "macros", "net", "time", "sync", "io-util"] }
+tower = { version = "0.5.3", default-features = false, features = ["util"] }
+tower-http = { version = "0.6.11", default-features = false }
+axum = { version = "0.8.9", default-features = false, features = ["tokio", "http1"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -33,3 +38,22 @@ todo = "deny"
 cognitive_complexity = "deny"
 too_many_lines = "deny"
 too_many_arguments = "deny"
+
+# Compression crates run unbearably slowly unoptimized; mock-site gzips tens of MB in tests.
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+
+[profile.dev.package.flate2]
+opt-level = 3
+
+[profile.dev.package.crc32fast]
+opt-level = 3
+
+[profile.dev.package.adler2]
+opt-level = 3
+
+[profile.dev.package.compression-codecs]
+opt-level = 3
+
+[profile.dev.package.brotli-decompressor]
+opt-level = 3
