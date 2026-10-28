@@ -53,6 +53,71 @@
 - **Crawl-delay:** not part of RFC 9309. It is honoured as a minimum interval, stored as
   whole milliseconds, and capped at one day.
 
+## Signal-file fetching and caching (F5)
+
+Section references are to RFC 9309, read from the RFC text at rfc-editor.org (2026-10-28).
+
+### Status mapping
+
+| Result of fetching a signal file | Status recorded | Effect for robots.txt |
+|---|---|---|
+| 2xx | `present`, parsed | Its rules apply (§2.3.1.1) |
+| 4xx except 429 | `absent` | "Unavailable": no rules, any resource may be crawled (§2.3.1.3) |
+| 429 | `unreachable`, failure `rate_limited` | Full disallow (our reading; see below) |
+| 5xx | `unreachable`, failure `server_error` | "Unreachable": complete disallow (§2.3.1.4) |
+| Timeout, refused address, DNS failure, connection error, unsafe body | `unreachable`, typed failure | Complete disallow (§2.3.1.4: "server or network errors") |
+| More than 5 redirects, or a refused redirect | `unreachable`, failure `redirect_refused` | Complete disallow (our reading; see below) |
+
+ai.txt and tdmrep.json use the same status mapping. Only a present file can deny, so their
+absent and unreachable results have no effect (owner decision, F3).
+
+### Unreachable robots.txt policy
+
+- **While unreachable:** the URL is denied for every purpose (`robots_txt.unreachable`).
+  The decision reason names the HTTP status or the failure, for example
+  "no HTTP response: timed out".
+- **Retry with exponential backoff:** a failed fetch is cached for
+  `delay(n) = min(60 s × 2^(n-1), 1 h) × (1 ± 20 %)`, capped at 1 h again after jitter.
+  Here n is the number of consecutive failures; the jitter comes from the injected `IdSource`.
+  That gives about 60 s, 120 s, 240 s, …, up to 1 h. Concurrent callers share the cached
+  failure, so a failing host gets one request per backoff period, not one per URL.
+- **Recovery:** the first success resets the streak and is cached for the TTL.
+- **Not adopted:** §2.3.1.4 allows treating a long-unreachable file (the example is 30 days)
+  as unavailable, which would mean allowing everything. Policy v1 never does that.
+
+### Cache TTL
+
+- **Successful fetches** (present or absent) are reused for **1 hour**. §2.4 says a cached
+  robots.txt SHOULD NOT be used for more than 24 hours, and the collector clamps any
+  configured TTL to 24 h. One hour keeps observations fresh while costing three requests per
+  host per hour at most.
+- **Failures** are cached for the backoff delay only, never for the full TTL.
+- **Bounded:** at most 10,000 hosts are cached. At the limit, the least recently used host
+  with no fetch in flight is dropped (its archived bodies lose the cache's reference). If
+  every cached host has a fetch in flight, the new host is fetched without caching.
+
+### Size limits
+
+Signal files are fetched with a 1 MiB cap. Longer bodies are truncated, not rejected; the
+receipt's excerpt shows `truncated`. The robots parser reads the first 500 KiB, the minimum
+§2.5 requires. Pages keep the 5 MB reject cap.
+
+### Interpretations needing legal review (F5)
+
+- **Cross-host redirects of robots.txt are followed** (owner's default). §2.3.1.2 says
+  crawlers SHOULD follow at least five redirects "even across authorities", and that the
+  rules found apply "in the context of the initial authority".
+  - The collector follows up to 5 hops, and every hop passes the address checks.
+  - The redirect chain and the final URL are recorded in the observation.
+  - The rules are cached under the original host.
+- **More than 5 redirects counts as unreachable** (complete disallow). §2.3.1.2 says crawlers
+  MAY assume the file is unavailable, which would mean allow-all; we chose the stricter
+  reading.
+- **429 counts as unreachable**, although §2.3.1.3 gives 400-499 as the example range for
+  "unavailable". A rate-limit response says nothing about the site's rules, so treating it as
+  allow-all would be wrong.
+- **A refused address or an unsafe body counts as unreachable**, which denies for robots.txt.
+
 ## Signal semantics by purpose
 
 The crawler declares one purpose per job: `search`, `ai_input`, `ai_train`, or `archive`.

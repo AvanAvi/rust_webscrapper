@@ -21,6 +21,24 @@ pub enum CoreError {
         /// The URL with user info, query, and fragment removed; the original is never kept.
         str_redacted_url: String,
     },
+    /// The archive has no room and every stored body is still referenced.
+    #[error("body archive is full ({u_capacity} bytes) and every body is referenced")]
+    ArchiveFull {
+        /// Capacity in bytes.
+        u_capacity: usize,
+    },
+    /// A body is larger than the archive accepts.
+    #[error("body exceeds the archive limit of {u_limit} bytes")]
+    ArchiveBodyTooLarge {
+        /// Size limit in bytes.
+        u_limit: usize,
+    },
+    /// No body is stored under a hash.
+    #[error("no archived body with SHA-256 {str_sha256}")]
+    UnknownBody {
+        /// The hash looked up.
+        str_sha256: String,
+    },
     /// A crawler identity is malformed or impersonates another crawler.
     #[error("invalid crawler identity: {str_reason}")]
     InvalidIdentity {

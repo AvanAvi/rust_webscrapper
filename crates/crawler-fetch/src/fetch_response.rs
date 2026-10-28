@@ -1,6 +1,7 @@
 //! Holds the result of one completed fetch.
 
 use std::net::IpAddr;
+use std::time::Duration;
 
 use crawler_core::{FetchRecord, Hasher, RedirectHop, Timestamp};
 
@@ -21,8 +22,10 @@ pub struct FetchResponse {
     pub vec_o_redirects: Vec<RedirectHop>,
     /// Vetted addresses the connector was given.
     pub vec_e_resolved_ips: Vec<IpAddr>,
-    /// Retry-After in seconds, when sent as a number.
-    pub opt_u_retry_after_secs: Option<u64>,
+    /// Whether the body was cut at the request's cap (truncate mode only).
+    pub b_truncated: bool,
+    /// Retry-After of a 429 or 503 response, capped at `DUR_MAX_RETRY_AFTER`.
+    pub opt_dur_retry_after: Option<Duration>,
     /// Time the request started.
     pub dt_started_at: Timestamp,
     /// Time the body was complete.

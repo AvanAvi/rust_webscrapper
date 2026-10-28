@@ -219,9 +219,10 @@ impl ReasonWriter {
 
     /// Describes how retrieval ended.
     fn status(&self, o_obs: &SignalObservation) -> String {
-        o_obs.opt_u_http_status.map_or_else(
-            || String::from("no HTTP response"),
-            |u_s| format!("HTTP {u_s}"),
-        )
+        match (o_obs.opt_u_http_status, o_obs.opt_e_failure) {
+            (Some(u_status), _) => format!("HTTP {u_status}"),
+            (None, Some(e_failure)) => format!("no HTTP response: {}", e_failure.label()),
+            (None, None) => String::from("no HTTP response"),
+        }
     }
 }

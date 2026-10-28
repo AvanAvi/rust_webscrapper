@@ -28,4 +28,5 @@ pub mod signal_parser;
 pub mod signal_set;
 pub mod tdmrep_finding;
 pub mod tdmrep_parser;
+pub mod tdmrep_rules;
 pub mod tdmrep_source;

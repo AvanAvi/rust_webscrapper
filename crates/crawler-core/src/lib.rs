@@ -1,6 +1,8 @@
 //! Core domain types for URLs, receipts, canonical encoding, hashing, clocks, and IDs.
 #![forbid(unsafe_code)]
 
+mod archive_state;
+mod body_archive;
 mod canonical_encoder;
 mod clock;
 mod core_error;
@@ -12,6 +14,7 @@ mod fetch_record;
 mod hasher;
 mod id_source;
 mod identity_record;
+mod memory_body_archive;
 mod outcome;
 mod percent_normalizer;
 pub mod policy;
@@ -20,6 +23,7 @@ mod random_id_source;
 mod receipt;
 mod redirect_hop;
 mod sequential_id_source;
+mod signal_failure;
 mod signal_kind;
 mod signal_observation;
 mod signal_status;
@@ -29,6 +33,7 @@ mod target_record;
 mod timestamp;
 mod url_normalizer;
 
+pub use body_archive::BodyArchive;
 pub use canonical_encoder::CanonicalEncoder;
 pub use clock::Clock;
 pub use core_error::CoreError;
@@ -39,6 +44,9 @@ pub use fetch_record::FetchRecord;
 pub use hasher::Hasher;
 pub use id_source::IdSource;
 pub use identity_record::IdentityRecord;
+pub use memory_body_archive::{
+    MemoryBodyArchive, U_DEFAULT_ARCHIVE_CAPACITY, U_MAX_ARCHIVED_BODY_BYTES,
+};
 pub use outcome::Outcome;
 pub use percent_normalizer::PercentNormalizer;
 pub use policy::crawler_identity::CrawlerIdentity;
@@ -51,6 +59,7 @@ pub use random_id_source::RandomIdSource;
 pub use receipt::{Receipt, U_RECEIPT_SCHEMA_VERSION};
 pub use redirect_hop::RedirectHop;
 pub use sequential_id_source::SequentialIdSource;
+pub use signal_failure::SignalFailure;
 pub use signal_kind::SignalKind;
 pub use signal_observation::SignalObservation;
 pub use signal_status::SignalStatus;
@@ -74,6 +83,7 @@ pub use signals::signal_parser::SignalParser;
 pub use signals::signal_set::SignalSet;
 pub use signals::tdmrep_finding::TdmrepFinding;
 pub use signals::tdmrep_parser::TdmrepParser;
+pub use signals::tdmrep_rules::{TdmrepEntry, TdmrepRules};
 pub use signals::tdmrep_source::TdmrepSource;
 pub use system_clock::SystemClock;
 pub use target_record::TargetRecord;

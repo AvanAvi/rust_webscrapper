@@ -19,7 +19,7 @@ type BoxError = Box<dyn std::error::Error>;
 /// Canonical encoding of `sample_receipt()`; any format change must update this deliberately.
 const STR_EXPECTED_CANONICAL: &str = include_str!("fixtures/sample_receipt.canonical.json");
 /// SHA-256 of `STR_EXPECTED_CANONICAL`, cross-checked with `shasum -a 256`.
-const STR_EXPECTED_HASH: &str = "decb3bb18443090610b4b190b4a0de62f2e4699cf55950d25b3fe164996405f8";
+const STR_EXPECTED_HASH: &str = "1d581f93f5a064e7457609e3e466add2a624f31f6ea68e69f0ad6251b96960a5";
 
 /// Returns the fake clock all samples use (2026-10-26T12:34:56Z).
 fn sample_clock() -> Result<FakeClock, BoxError> {
@@ -38,6 +38,9 @@ fn sample_signal(o_clock: &FakeClock) -> Result<SignalObservation, BoxError> {
         opt_u_http_status: Some(200),
         opt_str_content_sha256: Some(Hasher::new().sha256_hex(b"User-agent: *\nAllow: /\n")),
         opt_o_excerpt: Some(Excerpt::new("User-agent: *\nAllow: /")),
+        opt_str_final_url: Some(String::from("https://example.com/robots.txt")),
+        vec_o_redirects: Vec::new(),
+        opt_e_failure: None,
         opt_e_parsed: Some(ParsedSignal::RobotsTxt(RobotsFinding {
             b_allowed: true,
             opt_str_matched_agent: Some(String::from("*")),

@@ -98,8 +98,8 @@ async fn test_rate_limit_is_reported_without_retrying() -> TestResult {
     )
     .await??;
     assert_eq!(
-        (o_resp.u_status, o_resp.opt_u_retry_after_secs),
-        (429, Some(120))
+        (o_resp.u_status, o_resp.opt_dur_retry_after),
+        (429, Some(Duration::from_secs(120)))
     );
     assert_eq!(o_site.requests().len(), 1, "the client must not retry");
     Ok(())

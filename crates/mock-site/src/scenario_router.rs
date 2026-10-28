@@ -8,6 +8,7 @@ use axum::response::{IntoResponse, Response};
 
 use crate::request_log::RequestLog;
 use crate::scenario_bodies::{ScenarioBodies, U_BIG_TEXT_BYTES, U_BOMB_BYTES};
+use crate::signal_scenarios::SignalScenarios;
 
 /// HTML content type.
 const STR_HTML: &str = "text/html; charset=utf-8";
@@ -21,6 +22,8 @@ pub struct ScenarioRouter {
     o_log: RequestLog,
     /// Body factory.
     o_bodies: ScenarioBodies,
+    /// Signal-file scenarios.
+    o_signals: SignalScenarios,
 }
 
 impl ScenarioRouter {
@@ -30,6 +33,7 @@ impl ScenarioRouter {
             u_port,
             o_log,
             o_bodies: ScenarioBodies::new(),
+            o_signals: SignalScenarios::new(u_port),
         }
     }
 
@@ -56,6 +60,7 @@ impl ScenarioRouter {
     /// Picks the scenario for a host.
     fn dispatch(&self, str_host: &str, str_path: &str) -> Response {
         match str_host {
+            str_sig if str_sig.starts_with("sig-") => self.o_signals.respond(str_sig, str_path),
             "ok.mock" => self.ok_page(),
             "private-redirect.mock" => self.private_redirect(str_path),
             "rebind.mock" | "hops.mock" | "scope.mock" => self.redirect_chain(str_host, str_path),

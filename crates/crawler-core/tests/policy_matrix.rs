@@ -52,6 +52,9 @@ fn observation(o_scenario: &Scenario) -> Result<SignalObservation, Box<dyn std::
         opt_u_http_status: opt_u_http,
         opt_str_content_sha256: None,
         opt_o_excerpt: None,
+        opt_str_final_url: None,
+        vec_o_redirects: Vec::new(),
+        opt_e_failure: None,
         opt_e_parsed,
     })
 }
