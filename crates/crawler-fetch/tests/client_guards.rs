@@ -203,3 +203,20 @@ fn test_fetch_errors_map_to_receipt_fetch_failures() {
         assert_eq!(err_fetch.fetch_failure(), e_expected, "{err_fetch:?}");
     }
 }
+
+#[cfg(not(feature = "test-policy"))]
+#[test]
+fn test_production_client_cannot_take_a_custom_root() -> TestResult {
+    let path_script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../scripts/check-test-root-api.sh");
+    let o_output = std::process::Command::new("bash")
+        .arg(path_script)
+        .output()?;
+    assert!(
+        o_output.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&o_output.stdout),
+        String::from_utf8_lossy(&o_output.stderr)
+    );
+    Ok(())
+}

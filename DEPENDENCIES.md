@@ -43,3 +43,30 @@ The first lockfile was resolved against a stale local index and picked `quote` 1
 ## Canonical JSON
 
 No RFC 8785 crate is on the approved list, so `CanonicalEncoder` implements it directly. It is tested against the RFC 8785 section 3.2.3 sorting vector and the section 3.2.4 byte vector (minus its float member). The integer limit of ±(2^53-1) cites RFC 7493 (I-JSON) section 2.2; RFC 8785 section 3.1 requires I-JSON input. Floats are rejected rather than formatted.
+
+## Issue #8: TLS integration-test dependencies
+
+Approved by the owner on 2026-10-28. All three direct entries are exactly pinned under
+`crawler-fetch`'s `[dev-dependencies]`, with default features disabled. The TLS listener and
+certificate generator live under `tests/tls_support/`; mock-site gains no dependency or feature.
+
+| Crate | Version | Features / use | rust-version | Release / age at approval | Yank / RustSec | License |
+|---|---|---|---|---|---|---|
+| rustls | =0.23.46 | `std`, `aws_lc_rs`, `tls12`; server configuration and typed certificate-error assertions | 1.71 | 2026-10-14T09:54:15Z; approximately 14 days | Not yanked; no applicable advisories in the refreshed database (2026-0346 through 0349 fixed in this version) | Apache-2.0 OR ISC OR MIT |
+| tokio-rustls | =0.26.6 | `aws_lc_rs`, `tls12`; async TLS acceptor | 1.71 | 2026-09-28; 30 days | Not yanked; 2020-0019 does not apply | MIT OR Apache-2.0 |
+| rcgen | =0.14.10 | **Only** `aws_lc_rs`; generates independent roots and signed leaves in memory | 1.88 | 2026-08-28; 60 full days | Not yanked; no package advisories found | MIT OR Apache-2.0 |
+| yasna (transitive) | 0.6.0 | rcgen's ASN.1 encoder, `std` and `time`; the new compiled transitive crate | 1.60 | 2026-03-14; 228 days | Not yanked; no package advisories found | MIT OR Apache-2.0 |
+
+The owner explicitly approved direct rustls 0.23.46 before its exact 14-day timestamp:
+it was already locked and compiled through reqwest, so making it a dev dependency adds no
+new version exposure. tokio-rustls was also already locked. Registry metadata, published
+manifests, exact-version docs.rs/source and the refreshed RustSec database were read before use.
+The owner independently confirmed rcgen and yasna metadata using `cargo info`.
+
+rcgen's defaults (`ring`, `pem`) are disabled. Neither enters the build. Cargo's lockfile also
+records rcgen's inactive optional x509-parser dependency closure; these packages are not in the
+selected build graph. Its upstream OpenSSL dev dependency is not inherited. No license allow-list
+change, exception, or advisory ignore is needed in `deny.toml`.
+
+The complete `cargo tree -p crawler-fetch -e normal --locked` output is unchanged before/after.
+`cargo tree -p crawler-fetch -e dev --locked -i ring` prints no tree before and after.

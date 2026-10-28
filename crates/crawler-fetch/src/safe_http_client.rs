@@ -32,6 +32,12 @@ const STR_ACCEPT_ENCODING: &str = "gzip, deflate, br";
 /// SSRF-guarded HTTP client. Each fetch gets a fresh reqwest client with no connection pool,
 /// no proxies, no retries, and no referer, so nothing carries over between fetches.
 pub struct SafeHttpClient {
+    /// Additional root available only to the test-policy build.
+    #[cfg(feature = "test-policy")]
+    opt_o_test_root: Option<reqwest::Certificate>,
+    /// Last URL-stripped transport error for typed test assertions.
+    #[cfg(feature = "test-policy")]
+    mtx_opt_err_test_transport: std::sync::Mutex<Option<reqwest::Error>>,
     /// Declared identity.
     o_identity: CrawlerIdentity,
     /// Address policy.
@@ -52,6 +58,10 @@ impl SafeHttpClient {
         let o_policy = o_config.e_policy.build()?;
         Self::check_contact(&o_config.o_identity)?;
         Ok(Self {
+            #[cfg(feature = "test-policy")]
+            opt_o_test_root: o_config.opt_o_test_root,
+            #[cfg(feature = "test-policy")]
+            mtx_opt_err_test_transport: std::sync::Mutex::new(None),
             o_safety: UrlSafety::new(Arc::clone(&o_policy)),
             o_policy,
             o_identity: o_config.o_identity,
@@ -93,7 +103,8 @@ impl SafeHttpClient {
             .header(ACCEPT_ENCODING, STR_ACCEPT_ENCODING)
             .send()
             .await;
-        let o_response = res_o_response.map_err(|err_send| self.send_error(&err_send, &o_log))?;
+        let o_response =
+            res_o_response.map_err(|err_send| self.handle_send_error(err_send, &o_log))?;
         self.finish(
             o_response,
             &o_log,
@@ -161,7 +172,7 @@ impl SafeHttpClient {
 
     /// Returns a builder with identity, timeouts, and everything that could leak state disabled.
     fn base_builder(&self) -> reqwest::ClientBuilder {
-        reqwest::Client::builder()
+        let o_builder = reqwest::Client::builder()
             .user_agent(self.o_identity.user_agent())
             .no_proxy()
             .connect_timeout(self.o_limits.dur_connect)
@@ -169,7 +180,27 @@ impl SafeHttpClient {
             .timeout(self.o_limits.dur_total)
             .pool_max_idle_per_host(0)
             .referer(false)
-            .retry(reqwest::retry::never())
+            .retry(reqwest::retry::never());
+        #[cfg(feature = "test-policy")]
+        let o_builder = o_builder.tls_certs_merge(self.opt_o_test_root.clone());
+        o_builder
+    }
+
+    /// Takes the last transport error for typed certificate assertions in tests.
+    #[cfg(feature = "test-policy")]
+    pub fn take_test_transport_error(&self) -> Option<reqwest::Error> {
+        self.mtx_opt_err_test_transport.lock().ok()?.take()
+    }
+
+    /// Maps an owned error and retains URL-stripped diagnostics only in test-policy builds.
+    fn handle_send_error(&self, err_send: reqwest::Error, o_log: &FetchLog) -> FetchError {
+        let err_send = err_send.without_url();
+        let err_fetch = self.send_error(&err_send, o_log);
+        #[cfg(feature = "test-policy")]
+        if let Ok(mut o_slot) = self.mtx_opt_err_test_transport.lock() {
+            *o_slot = Some(err_send);
+        }
+        err_fetch
     }
 
     /// Maps a send error, preferring a refusal recorded by the resolver or redirect guard.

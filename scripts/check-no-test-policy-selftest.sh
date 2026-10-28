@@ -35,3 +35,7 @@ if ! grep -q "probe does not enable test-policy" <<<"$CLEAN_OUT"; then
   exit 1
 fi
 echo "check-no-test-policy self-test: fails on enabled, passes on clean"
+
+# The enabled feature exposes the root API; a default build must reject its use.
+"$ROOT/scripts/check-test-root-api.sh" enabled
+"$ROOT/scripts/check-test-root-api.sh" clean

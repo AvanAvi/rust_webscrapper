@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails if a binary's dependency graph enables crawler-fetch's `test-policy` feature (the
-# loopback-only address policy used by tests).
+# loopback-only address policy, extra TLS trust root and transport diagnostics used by tests).
 #
 # How features are read: `cargo tree -i crawler-fetch -e normal,features` prints, for the
 # given package, every feature of crawler-fetch that is enabled anywhere in its normal
@@ -13,6 +13,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="${1:-$ROOT/Cargo.toml}"
 PACKAGE="${2:-crawler-cli}"
+# Also prove the production configuration API cannot accept a custom root.
+if [[ $# -eq 0 ]]; then
+  "$ROOT/scripts/check-test-root-api.sh" clean
+fi
 LOCK_FLAG=()
 if [[ $# -eq 0 ]]; then LOCK_FLAG=(--locked); fi
 
