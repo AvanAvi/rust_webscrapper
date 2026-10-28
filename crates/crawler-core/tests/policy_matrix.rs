@@ -54,6 +54,8 @@ fn observation(o_scenario: &Scenario) -> Result<SignalObservation, Box<dyn std::
         opt_o_excerpt: None,
         opt_str_final_url: None,
         vec_o_redirects: Vec::new(),
+        b_body_truncated: false,
+        u_body_bytes_seen: 0,
         opt_e_failure: None,
         opt_e_parsed,
     })

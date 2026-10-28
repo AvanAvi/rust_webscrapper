@@ -12,13 +12,16 @@ use crate::fetch_limits::FetchLimits;
 /// Content encodings the client decodes; anything else is refused rather than stored opaque.
 const VEC_STR_SUPPORTED_ENCODINGS: [&str; 3] = ["gzip", "deflate", "br"];
 
-/// Bytes read so far and whether reading stopped at the cap.
+/// Bytes read so far, how many were seen, and whether reading stopped at the cap.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ReadBody {
     /// Bytes kept.
     pub by_body: Vec<u8>,
     /// Whether more bytes existed than the budget allowed.
     pub b_truncated: bool,
+    /// Bytes received, including the part of the last chunk past the cap; reading stops after
+    /// the first chunk that crosses the cap, so this is a lower bound of the full body size.
+    pub u_bytes_seen: u64,
 }
 
 /// Body reading: the encoded body is capped while it arrives (Content-Length is checked first
@@ -101,6 +104,7 @@ impl BodyReader {
         by_chunk: &[u8],
         o_budget: BodyBudget,
     ) -> Result<bool, FetchError> {
+        o_read.u_bytes_seen = o_read.u_bytes_seen.saturating_add(by_chunk.len() as u64);
         if o_read.by_body.len() + by_chunk.len() <= o_budget.u_cap {
             o_read.by_body.extend_from_slice(by_chunk);
             return Ok(false);
@@ -153,6 +157,7 @@ impl BodyReader {
         let mut o_read = ReadBody {
             by_body: Vec::new(),
             b_truncated: b_partial_input,
+            u_bytes_seen: 0,
         };
         loop {
             let by_chunk = match o_decoded.chunk().await {

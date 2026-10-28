@@ -29,6 +29,15 @@ impl SignalDocument {
         }
     }
 
+    /// Returns an estimate of the heap bytes the parsed form holds.
+    pub fn heap_bytes(&self) -> usize {
+        match self {
+            Self::Unparsed => 0,
+            Self::Robots(o_doc) | Self::AiTxt(o_doc) => o_doc.heap_bytes(),
+            Self::Tdmrep(o_rules) => o_rules.heap_bytes(),
+        }
+    }
+
     /// Returns the finding for one URL, or `None` when nothing was parsed.
     pub fn evaluate(&self, o_context: &SignalContext) -> Option<ParsedSignal> {
         match self {

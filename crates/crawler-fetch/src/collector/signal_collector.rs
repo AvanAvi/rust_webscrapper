@@ -59,7 +59,11 @@ impl SignalCollector {
     ) -> Self {
         let (o_clock, o_ids) = o_time;
         Self {
-            o_cache: Arc::new(HostCache::new(o_config.u_max_hosts, Arc::clone(&o_archive))),
+            o_cache: Arc::new(HostCache::new(
+                o_config.u_max_hosts,
+                o_config.u_max_cached_bytes,
+                Arc::clone(&o_archive),
+            )),
             o_files: SignalFileFetcher::new(
                 o_fetcher,
                 o_archive,
@@ -102,11 +106,14 @@ impl SignalCollector {
                 Acquire::Hit(o_file) => return Ok(o_file),
                 Acquire::Wait(o_notified) => o_notified.await,
                 Acquire::Lead(o_ticket) => return self.lead(o_ticket, url_origin, e_file).await,
-                Acquire::Bypass => {
-                    return Ok(Arc::new(self.o_files.fetch(url_origin, e_file).await?));
-                }
+                Acquire::Bypass => return self.bypass(url_origin, e_file).await,
             }
         }
+    }
+
+    /// Returns the summed weight of the cached files, in bytes.
+    pub fn cached_bytes(&self) -> usize {
+        self.o_cache.cached_bytes()
     }
 
     /// Returns the page-level observations (X-Robots-Tag, robots meta, TDMRep header and meta).
@@ -136,6 +143,17 @@ impl SignalCollector {
         let o_file = Arc::new(self.o_files.fetch(url_origin, e_file).await?);
         o_guard.finish(Arc::clone(&o_file), self.expiry(&o_file, u_failures_before));
         Ok(o_file)
+    }
+
+    /// Fetches without caching; the archive reference is not kept, so the body stays evictable.
+    async fn bypass(
+        &self,
+        url_origin: &Url,
+        e_file: SignalFile,
+    ) -> Result<Arc<FetchedFile>, FetchError> {
+        let o_file = self.o_files.fetch(url_origin, e_file).await?;
+        self.o_cache.release_file(&o_file);
+        Ok(Arc::new(o_file))
     }
 
     /// Returns the expiry and failure streak: TTL after a response, backoff after a failure.

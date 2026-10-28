@@ -53,6 +53,18 @@ impl TdmrepRules {
         }
     }
 
+    /// Returns an estimate of the heap bytes the entries hold.
+    pub fn heap_bytes(&self) -> usize {
+        self.vec_o_entries
+            .iter()
+            .map(|o_entry| {
+                let u_location = o_entry.opt_str_location.as_ref().map_or(0, String::len);
+                let u_policy = o_entry.opt_str_policy_url.as_ref().map_or(0, String::len);
+                size_of::<TdmrepEntry>() + u_location + u_policy
+            })
+            .sum()
+    }
+
     /// Returns the finding of the first entry whose location matches the path.
     pub fn evaluate(&self, str_path: &str) -> TdmrepFinding {
         if self.b_unparseable {

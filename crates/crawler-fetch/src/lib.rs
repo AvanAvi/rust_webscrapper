@@ -33,7 +33,8 @@ pub use body_budget::{BodyBudget, BodyOverflow};
 pub use client_config::ClientConfig;
 pub use collector::backoff_policy::BackoffPolicy;
 pub use collector::collector_config::{
-    CollectorConfig, DUR_MAX_SIGNAL_TTL, DUR_SIGNAL_TTL, U_MAX_CACHED_HOSTS, U_MAX_SIGNAL_BYTES,
+    CollectorConfig, DUR_MAX_SIGNAL_TTL, DUR_SIGNAL_TTL, U_MAX_CACHED_BYTES, U_MAX_CACHED_HOSTS,
+    U_MAX_SIGNAL_BYTES,
 };
 pub use collector::fetched_file::FetchedFile;
 pub use collector::page_signal_reader::PageSignalReader;

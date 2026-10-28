@@ -188,6 +188,8 @@ impl PageSignalReader {
             opt_o_excerpt: o_source.opt_o_excerpt,
             opt_str_final_url: Some(o_response.str_final_url.clone()),
             vec_o_redirects: o_response.vec_o_redirects.clone(),
+            b_body_truncated: o_response.b_truncated,
+            u_body_bytes_seen: o_response.u_body_bytes_seen,
             opt_e_failure: None,
             opt_e_parsed: o_source.b_present.then_some(o_source.e_parsed),
         }

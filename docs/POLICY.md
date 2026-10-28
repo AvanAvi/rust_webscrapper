@@ -92,15 +92,54 @@ absent and unreachable results have no effect (owner decision, F3).
   configured TTL to 24 h. One hour keeps observations fresh while costing three requests per
   host per hour at most.
 - **Failures** are cached for the backoff delay only, never for the full TTL.
-- **Bounded:** at most 10,000 hosts are cached. At the limit, the least recently used host
-  with no fetch in flight is dropped (its archived bodies lose the cache's reference). If
-  every cached host has a fetch in flight, the new host is fetched without caching.
+- **Bounded in hosts:** at most 10,000 hosts are cached. At the limit, the least recently used
+  host with no fetch in flight is dropped (its archived bodies lose the cache's reference). If
+  every cached host has a fetch in flight, the new host is fetched without caching, and that
+  fetch's archive reference is released at once.
+- **Bounded in bytes (F5.1):** the cached files may account for at most 128 MiB: each file's
+  archived body plus an estimate of its parsed form, computed from lengths (allocator slack is
+  not counted). Without this bound, 10,000 hosts x 3 files x 1 MiB could pin about 30 GiB.
+  Over the bound the least recently used idle hosts are dropped; the host just stored is kept,
+  so the overshoot is at most one host (3 MiB of bodies plus its parsed forms).
 
 ### Size limits
 
 Signal files are fetched with a 1 MiB cap. Longer bodies are truncated, not rejected; the
 receipt's excerpt shows `truncated`. The robots parser reads the first 500 KiB, the minimum
 §2.5 requires. Pages keep the 5 MB reject cap.
+
+**What the hash covers (F5.1).** A signal's `content_sha256` is the SHA-256 of the **stored
+bytes**: the decoded body as far as it was kept, which is also exactly what the parser read.
+For a truncated file it is not the hash of the file the server holds. Two fields say so:
+
+- `body_truncated`: whether the body was cut at the 1 MiB cap.
+- `body_bytes_seen`: decoded bytes actually received before reading stopped. Reading stops
+  after the first chunk that crosses the cap, so for a truncated body this is a lower bound of
+  the real size, not the real size.
+
+Re-parsing the archived bytes gives the same finding as the live decision.
+
+### Evidence archiving and the fail-closed rule (F5.1)
+
+Every answered signal-file body (2xx, 4xx, 5xx alike) is stored in the body archive before it
+is used. The in-memory archive has three limits:
+
+| Limit | Value | Why |
+|---|---|---|
+| Per body | 1 MiB | Equals the signal fetch cap, twice the 500 KiB RFC 9309 §2.5 asks parsers to handle, so the stored bytes always cover what was parsed. |
+| Total bytes | 256 MiB | Twice the cache's 128 MiB budget: bodies the cache pins can never fill the archive, and the other half absorbs bodies of in-flight and uncached fetches. |
+| Entries | 65,536 | Above the 30,000 bodies a full 10,000-host cache can reference, so small bodies cannot exhaust it; bookkeeping (hash key plus entry) stays near 13 MiB. |
+
+At a limit the oldest body nobody references is evicted. If every body is referenced, the
+store fails. **The collector then fails closed:** the signal is recorded as `unreachable`
+with failure `evidence_not_archived`, with no hash and no parsed content, and the policy
+denies the URL for **every purpose** under rule `evidence.not_archived`, whatever the signal
+kind. This includes ai.txt and TDMRep, which otherwise never deny when unreachable, and a
+robots.txt 404, which otherwise allows. No allow decision rests on a body that cannot be
+re-checked. The failure is cached for the backoff period only, like any other failure.
+
+Known gap until F6: a body is kept while the cache references it. Once the cache drops it,
+the body is evictable. Receipts must hold their own reference once the ledger exists.
 
 ### Interpretations needing legal review (F5)
 
@@ -117,6 +156,10 @@ receipt's excerpt shows `truncated`. The robots parser reads the first 500 KiB, 
   "unavailable". A rate-limit response says nothing about the site's rules, so treating it as
   allow-all would be wrong.
 - **A refused address or an unsafe body counts as unreachable**, which denies for robots.txt.
+- **A body that cannot be archived denies every purpose** (F5.1), even when the signal itself
+  would allow (a robots.txt 404, an ai.txt with no matching rule). This is stricter than the
+  signals require; it exists so that no allow decision rests on evidence that cannot be
+  re-checked. It only triggers when the archive is full of referenced bodies.
 
 ## Signal semantics by purpose
 
@@ -127,11 +170,15 @@ if any signal denies, the URL is denied and the page is not fetched. The decisio
 - one plain sentence per consulted signal, in observation order
 - the matched rule, which is the highest-precedence denying rule (or `no_reservation`)
 
-**Only signals that were present can deny.** The one exception is an unreachable
-robots.txt, which RFC 9309 requires to be treated as a full disallow.
+**Only signals that were present can deny.** There are two exceptions:
+
+- An unreachable robots.txt, which RFC 9309 requires to be treated as a full disallow.
+- A signal of any kind whose body could not be archived (`evidence_not_archived`), which
+  denies every purpose (see "Evidence archiving and the fail-closed rule").
 
 | Signal (source) | search | ai_input | ai_train | archive | Rule id |
 |---|---|---|---|---|---|
+| Any signal file whose body could not be archived | deny | deny | deny | deny | `evidence.not_archived` |
 | robots.txt rule disallows the path | deny | deny | deny | deny | `robots_txt.disallow` |
 | robots.txt 5xx, timeout, or no response | deny | deny | deny | deny | `robots_txt.unreachable` |
 | robots.txt 4xx (absent) | no rules | no rules | no rules | no rules | none |
@@ -149,13 +196,14 @@ robots.txt, which RFC 9309 requires to be treated as a full disallow.
 
 Precedence of the matched rule, when several signals deny:
 
-1. `robots_txt.unreachable`
-2. `robots_txt.disallow`
-3. `robots_txt.content_signal`
-4. `tdmrep.reservation`
-5. `ai_txt.disallow`
-6. `robots_tag.noai`
-7. `robots_tag.noimageai`
+1. `evidence.not_archived`
+2. `robots_txt.unreachable`
+3. `robots_txt.disallow`
+4. `robots_txt.content_signal`
+5. `tdmrep.reservation`
+6. `ai_txt.disallow`
+7. `robots_tag.noai`
+8. `robots_tag.noimageai`
 
 Every denying signal still appears in the reasons. Archive has no Content-Signal key, so no
 Content-Signal value affects it.

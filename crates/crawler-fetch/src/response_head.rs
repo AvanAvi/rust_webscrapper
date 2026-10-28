@@ -80,6 +80,7 @@ impl ResponseHead {
             vec_o_redirects: o_log.redirects(),
             vec_e_resolved_ips: o_log.ips(),
             b_truncated: o_body.b_truncated,
+            u_body_bytes_seen: o_body.u_bytes_seen,
             opt_dur_retry_after: self.opt_dur_retry_after,
             dt_started_at: o_times.0,
             dt_finished_at: o_times.1,

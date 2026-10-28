@@ -24,6 +24,9 @@ pub struct FetchResponse {
     pub vec_e_resolved_ips: Vec<IpAddr>,
     /// Whether the body was cut at the request's cap (truncate mode only).
     pub b_truncated: bool,
+    /// Decoded body bytes received before reading stopped; above the body length only when
+    /// truncated.
+    pub u_body_bytes_seen: u64,
     /// Retry-After of a 429 or 503 response, capped at `DUR_MAX_RETRY_AFTER`.
     pub opt_dur_retry_after: Option<Duration>,
     /// Time the request started.

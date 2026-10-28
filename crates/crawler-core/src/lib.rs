@@ -45,7 +45,8 @@ pub use hasher::Hasher;
 pub use id_source::IdSource;
 pub use identity_record::IdentityRecord;
 pub use memory_body_archive::{
-    MemoryBodyArchive, U_DEFAULT_ARCHIVE_CAPACITY, U_MAX_ARCHIVED_BODY_BYTES,
+    MemoryBodyArchive, U_DEFAULT_ARCHIVE_CAPACITY, U_DEFAULT_ARCHIVE_MAX_ENTRIES,
+    U_MAX_ARCHIVED_BODY_BYTES,
 };
 pub use outcome::Outcome;
 pub use percent_normalizer::PercentNormalizer;

@@ -22,8 +22,9 @@ pub enum SignalFailure {
     RedirectRefused,
     /// The body could not be decoded or exceeded a decoding limit.
     BadBody,
-    /// The body could not be archived, so its hash would not resolve.
-    ArchiveUnavailable,
+    /// The fetched body could not be stored in the archive, so the observation is not evidence;
+    /// the policy fails closed and denies.
+    EvidenceNotArchived,
 }
 
 impl SignalFailure {
@@ -38,7 +39,7 @@ impl SignalFailure {
             Self::ConnectionFailed => "connection failed",
             Self::RedirectRefused => "redirect refused",
             Self::BadBody => "body could not be read safely",
-            Self::ArchiveUnavailable => "body could not be archived",
+            Self::EvidenceNotArchived => "body could not be archived as evidence",
         }
     }
 }

@@ -27,6 +27,14 @@ pub enum CoreError {
         /// Capacity in bytes.
         u_capacity: usize,
     },
+    /// The archive holds its maximum number of bodies and every one is still referenced.
+    #[error(
+        "body archive holds its maximum of {u_max_entries} bodies and every body is referenced"
+    )]
+    ArchiveTooManyEntries {
+        /// Entry limit.
+        u_max_entries: usize,
+    },
     /// A body is larger than the archive accepts.
     #[error("body exceeds the archive limit of {u_limit} bytes")]
     ArchiveBodyTooLarge {

@@ -13,7 +13,7 @@ use crate::signal_observation::SignalObservation;
 use crate::target_record::TargetRecord;
 
 /// Schema version written into every receipt of this format.
-pub const U_RECEIPT_SCHEMA_VERSION: u32 = 1;
+pub const U_RECEIPT_SCHEMA_VERSION: u32 = 2;
 
 /// Evidence for one considered URL: identity, observed signals, decision, and fetch facts.
 ///

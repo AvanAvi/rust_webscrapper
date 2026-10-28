@@ -16,6 +16,9 @@ use crate::http_fetcher::HttpFetcher;
 
 /// Fetches signal files through the guarded client and archives every body by hash.
 ///
+/// Fail closed: when the archive refuses a body, the file is unreachable with the failure
+/// `evidence_not_archived`, carries no hash or parsed content, and the policy denies on it.
+///
 /// Status mapping (RFC 9309 sections 2.3.1.1 to 2.3.1.4): 2xx is present; 429 is unreachable
 /// (rate limited); other 4xx is absent ("unavailable"); 5xx and every fetch error are unreachable.
 pub struct SignalFileFetcher {
@@ -91,6 +94,9 @@ impl SignalFileFetcher {
             opt_u_http_status: None,
             opt_e_failure: None,
             opt_str_sha256: None,
+            u_stored_bytes: 0,
+            b_body_truncated: false,
+            u_body_bytes_seen: 0,
             opt_o_excerpt: None,
             dt_observed_at,
             e_document: SignalDocument::Unparsed,
@@ -103,12 +109,15 @@ impl SignalFileFetcher {
             opt_str_final_url: Some(o_response.str_final_url.clone()),
             vec_o_redirects: o_response.vec_o_redirects.clone(),
             opt_u_http_status: Some(o_response.u_status),
+            b_body_truncated: o_response.b_truncated,
+            u_body_bytes_seen: o_response.u_body_bytes_seen,
             ..o_base
         };
         match self.o_archive.store(&o_response.by_body) {
             Ok(str_sha256) => self.archived(o_answered, &o_response.by_body, str_sha256),
             Err(_) => FetchedFile {
-                opt_e_failure: Some(SignalFailure::ArchiveUnavailable),
+                e_status: SignalStatus::Unreachable,
+                opt_e_failure: Some(SignalFailure::EvidenceNotArchived),
                 ..o_answered
             },
         }
@@ -126,6 +135,7 @@ impl SignalFileFetcher {
             e_status,
             opt_e_failure,
             opt_str_sha256: Some(str_sha256),
+            u_stored_bytes: by_body.len(),
             opt_o_excerpt,
             e_document,
             ..o_answered

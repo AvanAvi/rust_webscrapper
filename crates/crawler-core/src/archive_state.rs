@@ -50,13 +50,25 @@ impl ArchiveState {
             .map(|o_body| o_body.by_body.clone())
     }
 
-    /// Inserts a new body with one reference, evicting unreferenced bodies to stay within capacity.
+    /// Returns the stored bytes and the number of stored bodies.
+    pub fn usage(&self) -> (usize, usize) {
+        (self.u_total_bytes, self.map_o_bodies.len())
+    }
+
+    /// Inserts a new body with one reference, evicting unreferenced bodies to stay within the
+    /// byte capacity and the entry limit.
     pub fn insert(
         &mut self,
         str_sha256: String,
         by_body: &[u8],
         u_capacity: usize,
+        u_max_entries: usize,
     ) -> Result<(), CoreError> {
+        while self.map_o_bodies.len() >= u_max_entries {
+            if !self.evict_oldest_unreferenced() {
+                return Err(CoreError::ArchiveTooManyEntries { u_max_entries });
+            }
+        }
         while self.u_total_bytes + by_body.len() > u_capacity {
             if !self.evict_oldest_unreferenced() {
                 return Err(CoreError::ArchiveFull { u_capacity });

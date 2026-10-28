@@ -4,6 +4,8 @@
 /// reported as the matched rule; every denying signal is still listed in the reasons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PolicyRule {
+    /// A signal was fetched but its body could not be archived: fail closed, for every purpose.
+    EvidenceNotArchived,
     /// robots.txt answered 5xx or could not be fetched: full disallow (RFC 9309 2.3.1.4).
     RobotsUnreachable,
     /// A robots.txt rule disallows the path.
@@ -26,6 +28,7 @@ impl PolicyRule {
     /// Returns the stable identifier stored in receipts.
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::EvidenceNotArchived => "evidence.not_archived",
             Self::RobotsUnreachable => "robots_txt.unreachable",
             Self::RobotsDisallow => "robots_txt.disallow",
             Self::ContentSignalNo => "robots_txt.content_signal",

@@ -41,6 +41,12 @@ pub struct SignalObservation {
     /// Redirect responses followed while fetching the source, in order.
     #[serde(rename = "redirects")]
     pub vec_o_redirects: Vec<RedirectHop>,
+    /// Whether the body was cut at the signal-file cap; `content_sha256` covers the stored prefix.
+    #[serde(rename = "body_truncated")]
+    pub b_body_truncated: bool,
+    /// Decoded body bytes actually received before reading stopped (at least the stored bytes).
+    #[serde(rename = "body_bytes_seen")]
+    pub u_body_bytes_seen: u64,
     /// Why the source was unreachable; `None` otherwise.
     #[serde(rename = "failure", deserialize_with = "Option::deserialize")]
     pub opt_e_failure: Option<SignalFailure>,

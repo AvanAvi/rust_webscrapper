@@ -18,13 +18,14 @@ use url::Url;
 pub type BoxError = Box<dyn std::error::Error>;
 
 /// Mock hosts used by the collector tests, all resolving to loopback.
-const VEC_STR_SIG_HOSTS: [&str; 13] = [
+const VEC_STR_SIG_HOSTS: [&str; 14] = [
     "sig-ok.mock",
     "sig-404.mock",
     "sig-500.mock",
     "sig-redirect.mock",
     "sig-target.mock",
     "sig-big.mock",
+    "sig-2mib.mock",
     "sig-ai.mock",
     "sig-tdm-invalid.mock",
     "sig-tdm-float.mock",
@@ -107,15 +108,23 @@ fn client() -> Result<Arc<SafeHttpClient>, BoxError> {
 
 /// Starts the mock site and a collector holding at most `u_max_hosts` hosts.
 pub async fn harness(u_max_hosts: usize) -> Result<Harness, BoxError> {
-    let o_client = client()?;
-    let o_clock = Arc::new(FakeClock::new(OffsetDateTime::from_unix_timestamp(
-        I_START_UNIX,
-    )?));
-    let o_archive = Arc::new(MemoryBodyArchive::new());
     let o_config = CollectorConfig {
         u_max_hosts,
         ..CollectorConfig::new("proofcrawl")
     };
+    harness_with(o_config, MemoryBodyArchive::new()).await
+}
+
+/// Starts the mock site and a collector with explicit settings and archive.
+pub async fn harness_with(
+    o_config: CollectorConfig,
+    o_archive: MemoryBodyArchive,
+) -> Result<Harness, BoxError> {
+    let o_client = client()?;
+    let o_clock = Arc::new(FakeClock::new(OffsetDateTime::from_unix_timestamp(
+        I_START_UNIX,
+    )?));
+    let o_archive = Arc::new(o_archive);
     let o_ids: Arc<dyn IdSource> = Arc::new(SequentialIdSource::new(1));
     let o_time = (Arc::clone(&o_clock) as Arc<dyn Clock>, o_ids);
     let o_collector =

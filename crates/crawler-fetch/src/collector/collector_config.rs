@@ -11,6 +11,10 @@ pub const DUR_SIGNAL_TTL: Duration = Duration::from_secs(3600);
 pub const DUR_MAX_SIGNAL_TTL: Duration = Duration::from_secs(24 * 3600);
 /// Most hosts kept in the cache; at the limit the least recently used idle host is dropped.
 pub const U_MAX_CACHED_HOSTS: usize = 10_000;
+/// Most bytes the cache accounts for (archived bodies plus parsed forms). Without it a full
+/// 10,000-host cache could pin 10,000 x 3 x 1 MiB = about 30 GiB; with it the cache stays near
+/// 128 MiB, half the default archive, so bodies it pins never fill the archive.
+pub const U_MAX_CACHED_BYTES: usize = 128 * 1024 * 1024;
 /// Fetch cap for signal files; longer bodies are truncated (pages keep the 5 MB cap).
 pub const U_MAX_SIGNAL_BYTES: usize = 1024 * 1024;
 
@@ -23,6 +27,8 @@ pub struct CollectorConfig {
     pub dur_ttl: Duration,
     /// Most cached hosts.
     pub u_max_hosts: usize,
+    /// Most bytes the cached files account for.
+    pub u_max_cached_bytes: usize,
     /// Retry schedule for failed fetches.
     pub o_backoff: BackoffPolicy,
     /// Signal-file body cap.
@@ -36,6 +42,7 @@ impl CollectorConfig {
             str_product_token: str_product_token.to_owned(),
             dur_ttl: DUR_SIGNAL_TTL,
             u_max_hosts: U_MAX_CACHED_HOSTS,
+            u_max_cached_bytes: U_MAX_CACHED_BYTES,
             o_backoff: BackoffPolicy::default(),
             u_max_signal_bytes: U_MAX_SIGNAL_BYTES,
         }

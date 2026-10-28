@@ -143,6 +143,7 @@ fn canned() -> Result<FetchResponse, Box<dyn std::error::Error>> {
         vec_o_redirects: Vec::new(),
         vec_e_resolved_ips: Vec::new(),
         b_truncated: false,
+        u_body_bytes_seen: 2,
         opt_dur_retry_after: None,
         dt_started_at: dt_now.clone(),
         dt_finished_at: dt_now,

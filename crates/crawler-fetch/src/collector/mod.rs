@@ -4,6 +4,7 @@ pub mod backoff_policy;
 pub mod collector_config;
 pub mod fetched_file;
 pub mod host_cache;
+pub mod host_table;
 pub mod leader_guard;
 pub mod page_signal_reader;
 pub mod signal_collector;
