@@ -13,7 +13,7 @@ const U_MAX_CUT_SLACK: usize = 3;
 
 /// Excerpt of an observed signal source, with its original size so partial excerpts show.
 ///
-/// Encodes as `{"original_bytes":N,"text":"...","truncated":bool}`. Decoding rejects
+/// Encodes as `{"text_bytes":N,"text":"...","truncated":bool}`. Decoding rejects
 /// combinations that `Excerpt::new` could not have produced, so each excerpt has one encoding.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "ExcerptFields")]
@@ -24,9 +24,9 @@ pub struct Excerpt {
     /// Whether the text was cut from a longer original.
     #[serde(rename = "truncated")]
     b_truncated: bool,
-    /// Size of the original text in bytes.
-    #[serde(rename = "original_bytes")]
-    u_original_bytes: u64,
+    /// UTF-8 length of the decoded text the excerpt was cut from.
+    #[serde(rename = "text_bytes")]
+    u_text_bytes: u64,
 }
 
 impl Excerpt {
@@ -36,7 +36,7 @@ impl Excerpt {
         Self {
             str_text: str_source[..u_end].to_owned(),
             b_truncated: u_end < str_source.len(),
-            u_original_bytes: str_source.len() as u64,
+            u_text_bytes: str_source.len() as u64,
         }
     }
 
@@ -50,23 +50,21 @@ impl Excerpt {
         self.b_truncated
     }
 
-    /// Returns the size of the original text in bytes.
-    pub fn original_bytes(&self) -> u64 {
-        self.u_original_bytes
+    /// Returns the UTF-8 length of the decoded text the excerpt was cut from.
+    pub fn text_bytes(&self) -> u64 {
+        self.u_text_bytes
     }
 
     /// Checks that decoded fields are exactly what `new` would produce for some original.
     fn validate(o_fields: &ExcerptFields) -> Result<(), CoreError> {
         let u_len = o_fields.str_text.len();
         let u_cap = U_MAX_EXCERPT_BYTES as u64;
-        if o_fields.b_truncated != (o_fields.u_original_bytes > u_cap) {
-            return Err(Self::invalid(
-                "truncated flag does not match original_bytes",
-            ));
+        if o_fields.b_truncated != (o_fields.u_text_bytes > u_cap) {
+            return Err(Self::invalid("truncated flag does not match text_bytes"));
         }
-        if !o_fields.b_truncated && u_len as u64 != o_fields.u_original_bytes {
+        if !o_fields.b_truncated && u_len as u64 != o_fields.u_text_bytes {
             return Err(Self::invalid(
-                "untruncated text length differs from original_bytes",
+                "untruncated text length differs from text_bytes",
             ));
         }
         let b_cut_at_cap =
@@ -95,7 +93,7 @@ impl TryFrom<ExcerptFields> for Excerpt {
         Ok(Self {
             str_text: o_fields.str_text,
             b_truncated: o_fields.b_truncated,
-            u_original_bytes: o_fields.u_original_bytes,
+            u_text_bytes: o_fields.u_text_bytes,
         })
     }
 }

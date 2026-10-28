@@ -1,190 +1,36 @@
-//! Schema fingerprint: a golden hash of the receipt's canonical field list (every key path with
-//! its JSON types, one signal per parsed format). Changing a field name, adding or removing a
-//! field, or changing a field's JSON type changes the fingerprint; the test then fails until
-//! `U_RECEIPT_SCHEMA_VERSION` is bumped and the golden pair below is updated together.
-//! Enum value sets (for example the failure names) are not part of the fingerprint.
+//! Schema fingerprint: a golden hash of everything a receipt commits to. Four sections:
+//! the receipt's key paths with their JSON types, the stored signal observation's key paths (one
+//! per parsed format), the signal set record as `SignalSetArchive` writes it, and every enum
+//! value name. Renaming or retyping a field, adding or removing one, or renaming an enum value
+//! changes the fingerprint; the test then fails until `U_RECEIPT_SCHEMA_VERSION` is bumped and
+//! the golden pair below is updated together.
+
+#[path = "schema_support/enum_values.rs"]
+mod enum_values;
+#[path = "schema_support/maximal.rs"]
+mod maximal;
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::net::{IpAddr, Ipv6Addr};
+use std::sync::Arc;
 
 use crawler_core::{
-    AiTxtFinding, CanonicalEncoder, ContentSignal, DecisionRecord, Excerpt, FetchRecord, Hasher,
-    IdentityRecord, Outcome, ParsedSignal, Purpose, Receipt, RedirectHop, RobotsFinding,
-    RobotsRule, RobotsTagFinding, RuleKind, SignalFailure, SignalKind, SignalObservation,
-    SignalStatus, TargetRecord, TdmrepFinding, Timestamp, U_RECEIPT_SCHEMA_VERSION,
+    BodyArchive, CanonicalEncoder, Hasher, MemoryBodyArchive, SignalSetArchive,
+    U_RECEIPT_SCHEMA_VERSION,
 };
+use maximal::BoxError;
+use serde::Serialize;
 use serde_json::Value;
-use uuid::Uuid;
 
 /// Result type for tests that use `?` instead of `expect`.
 type TestResult = Result<(), Box<dyn std::error::Error>>;
-/// Boxed error for helpers.
-type BoxError = Box<dyn std::error::Error>;
 /// Key paths and the JSON types seen at each.
 type FieldMap = BTreeMap<String, BTreeSet<&'static str>>;
 
-/// Schema version and SHA-256 of the canonical field list it was frozen with.
+/// Schema version and SHA-256 of the fingerprint text it was frozen with.
 const O_GOLDEN_FINGERPRINT: (u32, &str) = (
-    2,
-    "8e1f00ebc5b696e4996c31a9b9f660d3b98c93df3dcfc3fd73f864448d7e4859",
+    3,
+    "5febadfb426ce8b6cca895277f3b6f4d308722554d6652f9c8c0485c82b29c16",
 );
-
-/// Returns a rule.
-fn rule() -> RobotsRule {
-    RobotsRule {
-        e_kind: RuleKind::Disallow,
-        str_pattern: String::from("/private/"),
-    }
-}
-
-/// Returns one finding of every parsed format, with every optional field filled.
-fn findings() -> Vec<(SignalKind, ParsedSignal)> {
-    vec![
-        (SignalKind::RobotsTxt, ParsedSignal::RobotsTxt(robots())),
-        (SignalKind::AiTxt, ParsedSignal::AiTxt(ai_txt())),
-        (SignalKind::TdmrepWellKnown, ParsedSignal::Tdmrep(tdmrep())),
-        (
-            SignalKind::XRobotsTag,
-            ParsedSignal::RobotsTag(robots_tag()),
-        ),
-    ]
-}
-
-/// Returns a robots.txt finding with every optional field filled.
-fn robots() -> RobotsFinding {
-    RobotsFinding {
-        b_allowed: false,
-        opt_str_matched_agent: Some(String::from("*")),
-        opt_o_matched_rule: Some(rule()),
-        opt_u_crawl_delay_ms: Some(1000),
-        opt_o_content_signal: Some(ContentSignal {
-            opt_b_search: Some(true),
-            opt_b_ai_input: Some(false),
-            opt_b_ai_train: Some(false),
-        }),
-        u_groups: 1,
-        u_invalid_lines: 0,
-        b_truncated: false,
-    }
-}
-
-/// Returns an ai.txt finding with every optional field filled.
-fn ai_txt() -> AiTxtFinding {
-    AiTxtFinding {
-        b_reserved: true,
-        opt_str_matched_agent: Some(String::from("*")),
-        opt_o_matched_rule: Some(rule()),
-        opt_str_assumed_extension: Some(String::from("html")),
-        u_invalid_lines: 0,
-        b_truncated: false,
-    }
-}
-
-/// Returns a TDMRep finding with every optional field filled.
-fn tdmrep() -> TdmrepFinding {
-    TdmrepFinding {
-        opt_b_reserved: Some(true),
-        opt_str_policy_url: Some(String::from("https://example.com/policy.json")),
-        opt_str_matched_location: Some(String::from("/*")),
-        u_protocol_errors: 0,
-    }
-}
-
-/// Returns an X-Robots-Tag finding.
-fn robots_tag() -> RobotsTagFinding {
-    RobotsTagFinding {
-        vec_str_directives: vec![String::from("noai")],
-        b_noai: true,
-        b_noimageai: false,
-    }
-}
-
-/// Returns a present observation with every optional field filled.
-fn signal(e_kind: SignalKind, e_parsed: ParsedSignal) -> Result<SignalObservation, BoxError> {
-    Ok(SignalObservation {
-        e_kind,
-        e_status: SignalStatus::Present,
-        str_source_url: String::from("https://example.com/robots.txt"),
-        dt_observed_at: Timestamp::parse("2026-10-28T00:00:00.000000Z")?,
-        opt_u_http_status: Some(200),
-        opt_str_content_sha256: Some(Hasher::new().sha256_hex(b"x")),
-        opt_o_excerpt: Some(Excerpt::new("x")),
-        opt_str_final_url: Some(String::from("https://example.com/robots.txt")),
-        vec_o_redirects: vec![hop()],
-        b_body_truncated: false,
-        u_body_bytes_seen: 1,
-        opt_e_failure: Some(SignalFailure::ServerError),
-        opt_e_parsed: Some(e_parsed),
-    })
-}
-
-/// Returns a redirect hop.
-fn hop() -> RedirectHop {
-    RedirectHop {
-        str_url: String::from("http://example.com/"),
-        u_status: 301,
-    }
-}
-
-/// Returns a fetch record with every optional field filled.
-fn fetch() -> Result<FetchRecord, BoxError> {
-    Ok(FetchRecord {
-        dt_started_at: Timestamp::parse("2026-10-28T00:00:00.000000Z")?,
-        dt_finished_at: Timestamp::parse("2026-10-28T00:00:01.000000Z")?,
-        u_http_status: 200,
-        opt_str_content_type: Some(String::from("text/html")),
-        u_bytes: 1,
-        str_body_sha256: Hasher::new().sha256_hex(b"x"),
-        vec_o_redirects: vec![hop()],
-        vec_e_resolved_ips: vec![IpAddr::V6(Ipv6Addr::LOCALHOST)],
-    })
-}
-
-/// Returns the maximal receipt.
-fn maximal_receipt() -> Result<Receipt, BoxError> {
-    let vec_o_signals = findings()
-        .into_iter()
-        .map(|(e_kind, e_parsed)| signal(e_kind, e_parsed))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(Receipt {
-        u_schema_version: U_RECEIPT_SCHEMA_VERSION,
-        uuid_receipt_id: Uuid::nil(),
-        u_sequence: 1,
-        uuid_job_id: Uuid::nil(),
-        uuid_task_id: Uuid::nil(),
-        u_lease_epoch: 1,
-        uuid_worker_id: Uuid::nil(),
-        o_identity: IdentityRecord {
-            str_user_agent: String::from("proofcrawl/0.1"),
-            e_purpose: Purpose::Search,
-            str_contact_url: String::from("https://crawler.example/contact"),
-        },
-        o_target: target(),
-        vec_o_signals,
-        o_decision: decision(),
-        opt_o_fetch: Some(fetch()?),
-    })
-}
-
-/// Returns the target with every optional field filled.
-fn target() -> TargetRecord {
-    TargetRecord {
-        str_url_requested: String::from("https://example.com/a"),
-        str_url_normalized: String::from("https://example.com/a"),
-        opt_str_url_final: Some(String::from("https://example.com/a")),
-        str_host: String::from("example.com"),
-    }
-}
-
-/// Returns a decision.
-fn decision() -> DecisionRecord {
-    DecisionRecord {
-        e_outcome: Outcome::Deny,
-        str_matched_rule: String::from("robots_txt.disallow"),
-        vec_str_reasons: vec![String::from("x")],
-        str_policy_version: String::from("v1"),
-    }
-}
 
 /// Returns the JSON type name of a value.
 fn type_name(e_value: &Value) -> &'static str {
@@ -231,41 +77,62 @@ fn walk_object(
     }
 }
 
-/// Returns the canonical field list: one `path: types` line per key path, sorted.
-fn field_list() -> Result<String, BoxError> {
-    let by_json = maximal_receipt()?.canonical_bytes(&CanonicalEncoder::new())?;
-    let e_root: Value = serde_json::from_slice(&by_json)?;
+/// Returns one section: a title line and one `path: types` line per key path of the values.
+fn section<T: Serialize>(str_title: &str, vec_o_values: &[T]) -> Result<String, BoxError> {
     let mut o_fields = FieldMap::new();
-    walk("$", &e_root, &mut o_fields);
-    Ok(o_fields
+    for o_value in vec_o_values {
+        let e_root: Value = serde_json::from_slice(&CanonicalEncoder::new().encode(o_value)?)?;
+        walk("$", &e_root, &mut o_fields);
+    }
+    let str_lines: String = o_fields
         .iter()
         .map(|(str_path, set_types)| {
             let vec_str_types: Vec<&str> = set_types.iter().copied().collect();
             format!("{str_path}: {}\n", vec_str_types.join("|"))
         })
-        .collect())
+        .collect();
+    Ok(format!("[{str_title}]\n{str_lines}"))
+}
+
+/// Returns the set record exactly as `SignalSetArchive` stores it.
+fn set_record() -> Result<Value, BoxError> {
+    let o_archive = Arc::new(MemoryBodyArchive::new());
+    let str_set_id = SignalSetArchive::new(o_archive.clone()).store(&maximal::observations()?)?;
+    let by_record = o_archive.load(&str_set_id).ok_or("set record stored")?;
+    Ok(serde_json::from_slice(&by_record)?)
+}
+
+/// Returns the full fingerprint text.
+fn fingerprint_text() -> Result<String, BoxError> {
+    Ok([
+        section("receipt", &maximal::receipts()?)?,
+        section("signal_observation", &maximal::observations()?)?,
+        section("signal_set_record", &[set_record()?])?,
+        format!("[enums]\n{}", enum_values::enum_lines()?),
+    ]
+    .concat())
 }
 
 #[test]
 fn test_receipt_schema_matches_its_version() -> TestResult {
-    let str_fields = field_list()?;
-    let str_hash = Hasher::new().sha256_hex(str_fields.as_bytes());
+    let str_text = fingerprint_text()?;
+    let str_hash = Hasher::new().sha256_hex(str_text.as_bytes());
     assert_eq!(
         (U_RECEIPT_SCHEMA_VERSION, str_hash.as_str()),
         O_GOLDEN_FINGERPRINT,
         "\nThe receipt schema changed without a schema_version bump and fingerprint update.\n\
          Bump U_RECEIPT_SCHEMA_VERSION in crates/crawler-core/src/receipt.rs, document the change \
          in docs/RECEIPT_SCHEMA.md, then set O_GOLDEN_FINGERPRINT to ({}, \"{str_hash}\").\n\
-         Current field list:\n{str_fields}",
+         Current fingerprint text:\n{str_text}",
         U_RECEIPT_SCHEMA_VERSION + u32::from(U_RECEIPT_SCHEMA_VERSION == O_GOLDEN_FINGERPRINT.0),
     );
     Ok(())
 }
 
 #[test]
-fn test_maximal_sample_fills_every_optional_field() -> TestResult {
-    let str_fields = field_list()?;
-    let vec_str_only_null: Vec<&str> = str_fields
+fn test_maximal_samples_fill_every_optional_field() -> TestResult {
+    let str_text = fingerprint_text()?;
+    let vec_str_only_null: Vec<&str> = str_text
         .lines()
         .filter(|str_line| str_line.ends_with(": null"))
         .collect();

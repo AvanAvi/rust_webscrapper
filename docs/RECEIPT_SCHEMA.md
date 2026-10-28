@@ -1,220 +1,233 @@
-# Receipt schema (schema_version 2)
+# Receipt schema (schema_version 3)
 
-A receipt is the evidence for one considered URL: who crawled, for what purpose, which signals
-were seen, what was decided and why, and what the fetch returned. Its canonical encoding
-(RFC 8785 style, see `CanonicalEncoder`) is what the ledger hashes. Every field is always
-present; optional values are explicit `null`. Decoding rejects missing and unknown fields.
+A receipt is the evidence for one considered URL: which crawler build and identity, for what
+purpose, which signals the decision used, what was decided and when, and what the fetch
+returned. Its canonical encoding (RFC 8785 style, `CanonicalEncoder`) is what the ledger hashes.
+Every field is always present; optional values are explicit `null`. Decoding rejects missing and
+unknown fields.
+
+## Shape: server stamp around a worker submission
+
+```
+receipt = { schema_version, sequence, recorded_at, submission }
+            '---- set by the server ----'          '-- worker --'
+```
+
+- `submission` (`ReceiptSubmission`) is everything a worker claims. It has no `sequence` and no
+  `recorded_at`, and decoding a submission that carries either fails (unknown field), so a worker
+  cannot supply them. The submission is the only part a worker could ever sign (F14).
+- `ReceiptSubmission::seal(sequence, server_clock)` is the only way to make a `Receipt`: it
+  takes `recorded_at` from the server's `Clock`, then runs `Receipt::validate`. `Receipt` fields
+  are private.
+- `Receipt::validate` enforces:
+  - `schema_version` is 3;
+  - `signal_set_id` is a lowercase SHA-256 hex digest;
+  - deny: `fetch` and `fetch_failure` are both null; allow: exactly one of them is set;
+  - `decision.decided_at` is strictly earlier than `fetch.started_at` whenever a fetch exists.
+  Ledger append (F6) must call it on every receipt it stores.
 
 ## Version
 
-`schema_version` is **2** (`U_RECEIPT_SCHEMA_VERSION`). It was bumped from 1 in F5.1 because:
+`schema_version` is **3** (`U_RECEIPT_SCHEMA_VERSION`). It was bumped from 2 in F5.2 in one change,
+before any ledger storage exists, so the ledger will only ever hold version 3. Version 2 was
+never stored. The changes:
 
-- every signal gained two required fields, `body_truncated` and `body_bytes_seen`, so a v1
-  decoder rejects v2 receipts and a v2 decoder rejects v1 receipts;
-- the failure value `archive_unavailable` became `evidence_not_archived`, and the rule id
-  `evidence.not_archived` was added to `decision.matched_rule`.
+| Change | Why |
+|---|---|
+| `recorded_at` added, server-only, outside the submission | the spec has the server assign timestamps; worker clocks are claims |
+| `submission` wrapper | separates server stamp from worker claims |
+| `crawler {name, version}` added, version from the build | names the parser and collector code that produced the findings |
+| `identity.product_token` added | the token robots.txt groups were matched against |
+| `target.depth` added | depth and scope limits become auditable (F7) |
+| `signals[]` replaced by `signal_set_id` | observations are stored once and shared; see "Signal sets" |
+| `decision.matched_rule` is a closed set of rule ids | unknown ids are rejected on decode |
+| `decision.decided_at` added | proves the decision preceded the fetch |
+| `fetch.bytes` renamed `fetch.body_bytes` | matches `body_sha256` and `body_bytes_seen` |
+| `fetch.retry_after_ms` added | 429/503 back-off is visible (F7/F10) |
+| `fetch_failure` added | an allowed URL whose fetch failed no longer looks like a deny |
+| `excerpt.original_bytes` renamed `excerpt.text_bytes` | it is the decoded text length, not the raw body |
+| page-level signals got `content_sha256` | header evidence resolves like signal files |
 
-Any change to the canonical body changes receipt hashes, so the version is a single integer
-with no minor part. No v1 receipt was ever stored (there is no ledger before F6), so nothing
-needs migrating. The test `receipt_schema.rs` pins a fingerprint of the field list to this
-version and fails when one changes without the other.
+`tests/receipt_schema.rs` pins a fingerprint of the receipt fields, the stored observation
+fields, the set record shape, and every enum value name to this version; it fails when one
+changes without the other. The frozen vector also embeds `crawler.version`, so a workspace
+version bump re-freezes it.
 
 ## Example
 
 The frozen test vector (`crates/crawler-core/tests/fixtures/sample_receipt.canonical.json`),
-SHA-256 `474210b41b81694868d4d1fb034ca7df8d8e9509e8b93a1283eab08c74b16ff1`. Canonical bytes,
-one line, no trailing newline:
+SHA-256 `530c7e6f53c510bea6356b836a0919638c801606219b395402d37f986b3c159d` (cross-checked with
+`shasum -a 256`). Its decision comes from the real `PolicyEvaluator` (`no_reservation`), and its
+one observation's excerpt, `text_bytes` and `body_bytes_seen` all describe the same 23-byte
+robots.txt. Canonical bytes, one line, no trailing newline:
 
 ```json
-{"decision":{"matched_rule":"robots.allow","outcome":"allow","policy_version":"v1","reasons":["robots.txt allows /a for *"]},"fetch":{"body_sha256":"b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628","bytes":1234,"content_type":"text/html; charset=utf-8","finished_at":"2026-10-26T12:34:56.250000Z","http_status":200,"redirects":[{"status":301,"url":"http://example.com/a"}],"resolved_ips":["93.184.215.14"],"started_at":"2026-10-26T12:34:56.000000Z"},"identity":{"contact_url":"https://crawler.example/contact","purpose":"ai_train","user_agent":"proofcrawl/0.1 (+https://crawler.example/contact)"},"job_id":"00000000-0000-0000-0000-000000000002","lease_epoch":3,"receipt_id":"00000000-0000-0000-0000-000000000001","schema_version":2,"sequence":7,"signals":[{"body_bytes_seen":23,"body_truncated":false,"content_sha256":"16ceb5ee3e0dc13aa9adf31a3ebbe45a1d965b8c2b9f72eaf84e5911e140ed95","excerpt":{"original_bytes":22,"text":"User-agent: *\nAllow: /","truncated":false},"failure":null,"final_url":"https://example.com/robots.txt","http_status":200,"kind":"robots_txt","observed_at":"2026-10-26T12:34:56.000000Z","parsed":{"allowed":true,"content_signal":null,"crawl_delay_ms":null,"format":"robots_txt","groups":1,"invalid_lines":0,"matched_agent":"*","matched_rule":{"kind":"allow","pattern":"/"},"truncated":false},"redirects":[],"source_url":"https://example.com/robots.txt","status":"present"}],"target":{"host":"example.com","url_final":"https://example.com/a","url_normalized":"http://example.com/a","url_requested":"HTTP://Example.com:80/a"},"task_id":"00000000-0000-0000-0000-000000000003","worker_id":"00000000-0000-0000-0000-000000000004"}
+{"recorded_at":"2026-10-26T12:34:56.265000Z","schema_version":3,"sequence":7,"submission":{"crawler":{"name":"proofcrawl","version":"0.1.0"},"decision":{"decided_at":"2026-10-26T12:34:56.000000Z","matched_rule":"no_reservation","outcome":"allow","policy_version":"v1","reasons":["robots.txt at https://example.com/robots.txt allows this URL for user-agent group \"*\" and states no Content-Signal objection to AI training."]},"fetch":{"body_bytes":13,"body_sha256":"b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628","content_type":"text/html; charset=utf-8","finished_at":"2026-10-26T12:34:56.260000Z","http_status":200,"redirects":[{"status":301,"url":"http://example.com/a"}],"resolved_ips":["93.184.215.14"],"retry_after_ms":null,"started_at":"2026-10-26T12:34:56.010000Z"},"fetch_failure":null,"identity":{"contact_url":"https://crawler.example/contact","product_token":"proofcrawl","purpose":"ai_train","user_agent":"proofcrawl/0.1.0 (+https://crawler.example/contact; purpose=ai-train)"},"job_id":"00000000-0000-0000-0000-000000000002","lease_epoch":3,"receipt_id":"00000000-0000-0000-0000-000000000001","signal_set_id":"676a27ce4731261023b72a020561ee5c7d02b8055a55746cee62591d032f6dc5","target":{"depth":1,"host":"example.com","url_final":"https://example.com/a","url_normalized":"http://example.com/a","url_requested":"HTTP://Example.com:80/a"},"task_id":"00000000-0000-0000-0000-000000000003","worker_id":"00000000-0000-0000-0000-000000000004"}}
 ```
 
 The same receipt indented for reading (not canonical):
 
 ```json
 {
-  "decision": {
-    "matched_rule": "robots.allow",
-    "outcome": "allow",
-    "policy_version": "v1",
-    "reasons": [
-      "robots.txt allows /a for *"
-    ]
-  },
-  "fetch": {
-    "body_sha256": "b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628",
-    "bytes": 1234,
-    "content_type": "text/html; charset=utf-8",
-    "finished_at": "2026-10-26T12:34:56.250000Z",
-    "http_status": 200,
-    "redirects": [
-      {
-        "status": 301,
-        "url": "http://example.com/a"
-      }
-    ],
-    "resolved_ips": [
-      "93.184.215.14"
-    ],
-    "started_at": "2026-10-26T12:34:56.000000Z"
-  },
-  "identity": {
-    "contact_url": "https://crawler.example/contact",
-    "purpose": "ai_train",
-    "user_agent": "proofcrawl/0.1 (+https://crawler.example/contact)"
-  },
-  "job_id": "00000000-0000-0000-0000-000000000002",
-  "lease_epoch": 3,
-  "receipt_id": "00000000-0000-0000-0000-000000000001",
-  "schema_version": 2,
+  "recorded_at": "2026-10-26T12:34:56.265000Z",
+  "schema_version": 3,
   "sequence": 7,
-  "signals": [
-    {
-      "body_bytes_seen": 23,
-      "body_truncated": false,
-      "content_sha256": "16ceb5ee3e0dc13aa9adf31a3ebbe45a1d965b8c2b9f72eaf84e5911e140ed95",
-      "excerpt": {
-        "original_bytes": 22,
-        "text": "User-agent: *\nAllow: /",
-        "truncated": false
-      },
-      "failure": null,
-      "final_url": "https://example.com/robots.txt",
+  "submission": {
+    "crawler": {
+      "name": "proofcrawl",
+      "version": "0.1.0"
+    },
+    "decision": {
+      "decided_at": "2026-10-26T12:34:56.000000Z",
+      "matched_rule": "no_reservation",
+      "outcome": "allow",
+      "policy_version": "v1",
+      "reasons": [
+        "robots.txt at https://example.com/robots.txt allows this URL for user-agent group \"*\" and states no Content-Signal objection to AI training."
+      ]
+    },
+    "fetch": {
+      "body_bytes": 13,
+      "body_sha256": "b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628",
+      "content_type": "text/html; charset=utf-8",
+      "finished_at": "2026-10-26T12:34:56.260000Z",
       "http_status": 200,
-      "kind": "robots_txt",
-      "observed_at": "2026-10-26T12:34:56.000000Z",
-      "parsed": {
-        "allowed": true,
-        "content_signal": null,
-        "crawl_delay_ms": null,
-        "format": "robots_txt",
-        "groups": 1,
-        "invalid_lines": 0,
-        "matched_agent": "*",
-        "matched_rule": {
-          "kind": "allow",
-          "pattern": "/"
-        },
-        "truncated": false
-      },
-      "redirects": [],
-      "source_url": "https://example.com/robots.txt",
-      "status": "present"
-    }
-  ],
-  "target": {
-    "host": "example.com",
-    "url_final": "https://example.com/a",
-    "url_normalized": "http://example.com/a",
-    "url_requested": "HTTP://Example.com:80/a"
-  },
-  "task_id": "00000000-0000-0000-0000-000000000003",
-  "worker_id": "00000000-0000-0000-0000-000000000004"
+      "redirects": [
+        {
+          "status": 301,
+          "url": "http://example.com/a"
+        }
+      ],
+      "resolved_ips": [
+        "93.184.215.14"
+      ],
+      "retry_after_ms": null,
+      "started_at": "2026-10-26T12:34:56.010000Z"
+    },
+    "fetch_failure": null,
+    "identity": {
+      "contact_url": "https://crawler.example/contact",
+      "product_token": "proofcrawl",
+      "purpose": "ai_train",
+      "user_agent": "proofcrawl/0.1.0 (+https://crawler.example/contact; purpose=ai-train)"
+    },
+    "job_id": "00000000-0000-0000-0000-000000000002",
+    "lease_epoch": 3,
+    "receipt_id": "00000000-0000-0000-0000-000000000001",
+    "signal_set_id": "676a27ce4731261023b72a020561ee5c7d02b8055a55746cee62591d032f6dc5",
+    "target": {
+      "depth": 1,
+      "host": "example.com",
+      "url_final": "https://example.com/a",
+      "url_normalized": "http://example.com/a",
+      "url_requested": "HTTP://Example.com:80/a"
+    },
+    "task_id": "00000000-0000-0000-0000-000000000003",
+    "worker_id": "00000000-0000-0000-0000-000000000004"
+  }
 }
 ```
 
+## Signal sets (`signal_set_id`)
+
+Observations are not embedded. `SignalSetArchive` stores each observation's canonical JSON keyed
+by its SHA-256 (the observation hash), then a set record: the canonical JSON array of those
+hashes in observation order (the decision's reasons follow that order, so it is an ordered list,
+not a sorted set). `signal_set_id` is the SHA-256 of the set record. Loading re-checks every
+hash, so the receipt commits to the exact observations; identical observations (one host's
+robots.txt finding reused across pages) are stored once.
+
+If storing a set fails, nothing stays referenced and no receipt may be written for that decision.
+
+Size of a typical receipt (`tests/receipt_size.rs`: 3.3 KB robots.txt, ai.txt and tdmrep.json
+answering with a 2.4 KB 404 page, four page-level observations; canonical bytes):
+
+| | bytes | vs embedded |
+|---|---|---|
+| receipt with embedded observations | 12,217 | |
+| receipt with `signal_set_id` | 2,479 | 80% smaller |
+| stored per receipt, 100 pages of one host in one TTL (receipt + set record 470 + page-level observations 2,066 + 1/100 of host-level 7,736) | 5,092 | 58% smaller |
+| stored per receipt, one page per host | 12,751 | 4% larger |
+
+The saving is above 30% for any host crawled for more than one page, so the pointer was
+implemented. A host visited for a single page costs 4% more than embedding.
+
 ## Fields
 
-"Set by" names the component that produces the value today (F5) and, where it moves, the
-component that will own it once the server exists (F10).
+"Set by" names who produces the value.
 
 | Field | Type | Set by | Why it exists |
 |---|---|---|---|
-| `schema_version` | integer | crawler-core constant | Lets a verifier pick the decoder; changes whenever the canonical body changes. |
-| `receipt_id` | UUID string | worker (`IdSource`) | Stable name for the receipt; also the idempotency key for completion. |
-| `sequence` | integer | ledger, assigned by the server at append (F6/F10) | Position in the hash chain; gap-free, so deletions and reordering show. |
-| `job_id` | UUID string | server (job creation) | Groups receipts by crawl job for export and verification. |
-| `task_id` | UUID string | server (frontier) | Links the receipt to the frontier task it completes. |
-| `lease_epoch` | integer | server (claim) | Fencing token: proves which lease produced the receipt; stale completions are refused. |
-| `worker_id` | UUID string | server (worker registration) | Which worker made the observations; provenance if a worker misbehaves. |
-| `identity.user_agent` | string | `CrawlerIdentity` | The exact User-Agent sent, so the site's logs can be matched. |
-| `identity.purpose` | `search` \| `ai_input` \| `ai_train` \| `archive` | job configuration | The declared purpose the policy evaluated against. |
-| `identity.contact_url` | string | `CrawlerIdentity` | How the site owner reaches the operator. |
-| `target.url_requested` | string | frontier | The URL as discovered, before normalization. |
-| `target.url_normalized` | string | `UrlNormalizer` | Deduplication key; one receipt per normalized URL. |
-| `target.url_final` | string or null | fetcher | URL after redirects; null when no fetch happened. |
-| `target.host` | string | `UrlNormalizer` | Host the signals and rate limits apply to. |
-| `signals[]` | array | `SignalCollector` | Every signal consulted, in observation order, including absent and unreachable ones. |
-| `signals[].kind` | enum string | collector | Which signal: `robots_txt`, `ai_txt`, `tdmrep_well_known`, `tdmrep_header`, `tdmrep_meta`, `x_robots_tag`, `meta_robots`. |
-| `signals[].status` | `present` \| `absent` \| `unreachable` | collector (status mapping in POLICY.md) | Absent and unreachable have different policy meaning. |
-| `signals[].source_url` | string | collector | Where the signal was read. |
-| `signals[].observed_at` | timestamp | collector (`Clock`) | When the source was fetched; for a cached file this is the original fetch time, up to the 1 h TTL earlier. |
-| `signals[].http_status` | integer or null | collector | Final status; null when there was no response. |
-| `signals[].content_sha256` | hex string or null | collector + body archive | Archive key of the **stored** bytes the parser read; resolves to them while referenced. Null for page-level signals and failures. |
-| `signals[].excerpt` | object or null | collector | Human-readable start of the source (at most 2048 bytes). |
-| `signals[].excerpt.text` | string | collector | The excerpt itself (lossy UTF-8). |
-| `signals[].excerpt.truncated` | bool | collector | Whether the excerpt is shorter than the decoded text. |
-| `signals[].excerpt.original_bytes` | integer | collector | UTF-8 length of the decoded text the excerpt was cut from (not the raw body length). |
-| `signals[].final_url` | string or null | collector | Final URL after redirects; rules still apply to the original host (RFC 9309 §2.3.1.2). |
-| `signals[].redirects[]` | array of `{status, url}` | collector | Every redirect followed, each one re-vetted. |
-| `signals[].body_truncated` | bool | collector (F5.1) | Whether the body was cut at the 1 MiB cap, so `content_sha256` covers a prefix. |
-| `signals[].body_bytes_seen` | integer | collector (F5.1) | Decoded bytes received before reading stopped; a lower bound of the real size when truncated. |
-| `signals[].failure` | enum string or null | collector | Why a source was unreachable (`server_error`, `rate_limited`, `timeout`, `blocked_address`, `dns_failure`, `connection_failed`, `redirect_refused`, `bad_body`, `evidence_not_archived`). |
-| `signals[].parsed` | object or null, tagged by `format` | parsers | Typed finding for the target path (`robots_txt`, `ai_txt`, `tdmrep`, `robots_tag`); null unless present. |
-| `decision.outcome` | `allow` \| `deny` | `PolicyEvaluator` | The gate result; a deny means no page request. |
-| `decision.matched_rule` | string | `PolicyEvaluator` | Highest-precedence denying rule id, or `no_reservation`. |
-| `decision.reasons[]` | array of strings | `ReasonWriter` | One plain sentence per consulted signal. |
-| `decision.policy_version` | string | `PolicyEvaluator` | Which documented policy produced the decision. |
-| `fetch` | object or null | fetcher | Page fetch facts; null when denied. |
-| `fetch.started_at`, `fetch.finished_at` | timestamps | fetcher (`Clock`) | Fetch window. |
-| `fetch.http_status` | integer | fetcher | Final page status. |
-| `fetch.content_type` | string or null | fetcher | Declared type of the body. |
-| `fetch.bytes` | integer | fetcher | Decoded body length. |
-| `fetch.body_sha256` | hex string | fetcher | Hash of the decoded page body. |
-| `fetch.redirects[]` | array of `{status, url}` | fetcher | Redirect chain of the page. |
-| `fetch.resolved_ips[]` | array of IP strings | fetcher (vetting resolver) | Addresses actually dialled; evidence for the SSRF guard. |
+| `schema_version` | integer | server (`seal`) | Lets a verifier pick the decoder. |
+| `sequence` | integer | server, at ledger append (F6/F10) | Position in the hash chain; gaps and reordering show. |
+| `recorded_at` | timestamp | server `Clock` (`seal`) | When the server accepted the receipt; never worker-supplied. |
+| `submission.receipt_id` | UUID string | worker (`IdSource`) | Name of the receipt and completion idempotency key. |
+| `submission.job_id` | UUID string | server (job creation), echoed by the worker | Groups receipts per job. |
+| `submission.task_id` | UUID string | server (frontier), echoed | Links the receipt to its frontier task. |
+| `submission.lease_epoch` | integer | server (claim), echoed | Fencing token; stale completions are refused. |
+| `submission.worker_id` | UUID string | server (registration), echoed | Which worker made the observations. |
+| `submission.crawler.name` | string | build constant `STR_CRAWLER_NAME` | Product name. |
+| `submission.crawler.version` | string | build (`CARGO_PKG_VERSION`); only `CrawlerRecord::from_build` creates one | Parser and collector code version. |
+| `submission.identity.user_agent` | string | `CrawlerIdentity` | Exact User-Agent sent. |
+| `submission.identity.product_token` | string | `CrawlerIdentity` | Token matched against robots.txt groups. |
+| `submission.identity.purpose` | enum string | job configuration | Purpose the policy evaluated against. |
+| `submission.identity.contact_url` | string | `CrawlerIdentity` | How the site owner reaches the operator. |
+| `submission.target.url_requested` | string | frontier | URL as discovered. |
+| `submission.target.url_normalized` | string | `UrlNormalizer` | Deduplication key. |
+| `submission.target.url_final` | string or null | fetcher | URL after redirects; null without a response. |
+| `submission.target.host` | string | `UrlNormalizer` | Host signals and rate limits apply to. |
+| `submission.target.depth` | integer | frontier (F7) | Link distance from the seeds (seeds are 0). |
+| `submission.signal_set_id` | hex string | `SignalSetArchive` | Commits to the observations the decision used. |
+| `submission.decision.outcome` | `allow` \| `deny` | `PolicyEvaluator` | The gate result. |
+| `submission.decision.matched_rule` | rule id (closed set) | `PolicyEvaluator` | Highest-precedence denying rule, or `no_reservation`. |
+| `submission.decision.reasons[]` | strings | `ReasonWriter` | One plain sentence per observation, in set order. |
+| `submission.decision.policy_version` | string | `PolicyEvaluator` | Which documented policy decided. |
+| `submission.decision.decided_at` | timestamp | worker `Clock` | Must be earlier than `fetch.started_at`. |
+| `submission.fetch` | object or null | fetcher | Page fetch facts; null when denied or when the fetch failed. |
+| `submission.fetch.started_at`, `.finished_at` | timestamps | fetcher `Clock` | Fetch window. |
+| `submission.fetch.http_status` | integer | fetcher | Final status (4xx/5xx are fetch records, not failures). |
+| `submission.fetch.content_type` | string or null | fetcher | Declared type. |
+| `submission.fetch.body_bytes` | integer | fetcher | Decoded body length. |
+| `submission.fetch.body_sha256` | hex string | fetcher | Hash of the decoded body. |
+| `submission.fetch.redirects[]` | `{status, url}` | fetcher | Redirect chain, each hop re-vetted. |
+| `submission.fetch.resolved_ips[]` | IP strings | vetting resolver | Addresses actually dialled. |
+| `submission.fetch.retry_after_ms` | integer or null | fetcher | Retry-After of a 429/503 in ms, capped at one hour. |
+| `submission.fetch_failure` | enum string or null | fetcher (`FetchError::fetch_failure`) | Why an allowed fetch produced no response. |
 
-Not in the body, by design: `prev_hash`, `entry_hash`, signatures and `key_id`. They belong to
-the ledger row and checkpoints (F6); putting them in the body would make the hash circular.
+Stored observation (`SignalObservation`, one archive entry each, reached through `signal_set_id`):
 
-## Review against F6-F11: proposed changes (not applied)
+| Field | Type | Why it exists |
+|---|---|---|
+| `kind`, `status`, `source_url`, `observed_at`, `http_status`, `final_url`, `redirects[]` | as in v2 | What was read, where, when; `observed_at` of a cached file is its fetch time (up to the 1 h TTL earlier). |
+| `content_sha256` | hex string or null | Hash of the exact bytes the parser read. Signal files: the stored body. Header kinds: the canonical header text (below). Meta kinds: the page body (`fetch.body_sha256`). Null only for failures. |
+| `excerpt {text, truncated, text_bytes}` | object or null | Readable start of the source; `text_bytes` is the UTF-8 length of the decoded text it was cut from. |
+| `body_truncated` | bool | Whether the body was cut at the cap, so the hash covers a prefix. |
+| `body_bytes_seen` | integer | Decoded bytes received before reading stopped. **A lower bound, not the real file size**: reading stops after the first chunk that crosses the cap, so for a truncated body the real size is unknown and at least this. |
+| `failure` | enum string or null | Why a source was unreachable, including `evidence_not_archived`. |
+| `parsed` | object or null, tagged by `format` | Typed finding for the target path. |
 
-Each item says which feature needs it. Applying them is one more bump, to **3**, before the
-first ledger row is written, so the ledger never holds two schemas.
+### Canonical header text (page-level header signals)
 
-**Add**
+X-Robots-Tag and TDMRep header signals are parsed from, hashed over, and archived as one text
+form per kind: only that kind's headers (`x-robots-tag`; `tdm-reservation`, `tdm-policy`), names
+lowercased, values trimmed, one `name: value` line each ending in `\n`, sorted by name. The sort
+is stable: lines with the same name keep their response order, because RFC 9110 section 5.3
+makes that order significant (TDMRep reads the first `tdm-reservation`). Two responses that
+differ only in the order of different header names give the same text and hash. Other headers
+(cookies included) are never archived. If the archive refuses the text, the kind is
+`unreachable` with `evidence_not_archived`.
 
-1. `recorded_at` (timestamp, server). F6/F10: the spec says the server assigns timestamps;
-   today every timestamp comes from the worker's clock. Worker times stay as observations.
-2. `crawler {name, version}` (worker build). Ties findings to the parser and collector code
-   that produced them, so a re-parse can use the same version. `identity.user_agent` carries a
-   version only as free text.
-3. `identity.product_token` (string). The token the robots groups were matched against; today
-   it must be dug out of the User-Agent.
-4. `fetch_failure` (enum string or null). F7: "deny and error outcomes also get receipts". An
-   allowed URL whose page fetch fails (timeout, blocked address, body too large) has no place
-   for the error now; `fetch` is null and the receipt looks like a deny.
-5. `fetch.retry_after_ms` (integer or null). F7 per-host rate limiting and F10 admission act
-   on 429/503 Retry-After; the receipt should show why a host was backed off.
-6. `decision.decided_at` (timestamp). The gate-before-fetch claim (decision before any page
-   request) is provable only if the decision time is recorded next to `fetch.started_at`.
-7. `content_sha256` for page-level signals. X-Robots-Tag and meta values live only in the
-   excerpt today. Archive the header block (and use the page body hash for meta signals) so
-   page-level evidence resolves like signal files. Needed for F9's verification report.
-8. `target.depth` (integer). F7 depth limits and scope rules are otherwise not auditable.
+Meta signals (`meta_robots`, `tdmrep_meta`) carry the page body hash. Page bodies are not in the
+body archive yet (5 MB pages exceed its 1 MiB per-body cap); they resolve once F7/F9 store pages.
 
-**Rename or redefine**
+Not in the receipt, by design: `prev_hash`, `entry_hash`, signatures and `key_id`. They belong to
+the ledger row and checkpoints (F6).
 
-9. `excerpt.original_bytes` to `excerpt.text_bytes`: it measures the lossy UTF-8 text, not the
-   raw body, which `body_bytes_seen` now covers.
-10. `fetch.bytes` to `fetch.body_bytes`, matching `body_bytes_seen` and `body_sha256`.
-11. `decision.matched_rule`: decode as a closed enum instead of a free string. The frozen test
-    vector uses `robots.allow`, which the evaluator can never produce; fix the vector in the
-    same bump (and its excerpt, whose `original_bytes` 22 disagrees with `body_bytes_seen` 23).
+## Known limits
 
-**Retention (behaviour, no field change)**
-
-12. Archive references. `content_sha256` and `fetch.body_sha256` are the archive keys, so no
-    extra reference field is needed. But today a body is kept only while the collector's cache
-    references it; F6 must take one archive reference per stored receipt, so every hash in the
-    ledger keeps resolving.
-
-**Remove**
-
-13. Nothing. Each field is used by a feature above or by verification.
-
-**Test coverage**
-
-14. Extend the fingerprint to enum value sets (`kind`, `status`, `failure`, `outcome`,
-    `purpose`, rule ids, `format`). Renaming a value changes meaning without changing the field
-    list, and today only the frozen vector would notice, and only for values it contains.
+- Archive references: `SignalSetArchive::store` takes one reference per stored entry, and
+  receipts must keep them (F6). Signal-file bodies and header texts are still kept only while
+  the collector's cache holds them, or until evicted; F6 must take references for every hash a
+  stored receipt reaches.
+- `CrawlerIdentity` still takes its User-Agent version as an argument; it can differ from
+  `crawler.version`. Making the User-Agent use the build version too is a one-line follow-up.

@@ -32,6 +32,8 @@ pub struct SignalCollector {
     o_ids: Arc<dyn IdSource>,
     /// Settings.
     o_config: CollectorConfig,
+    /// Archive for page-level header blocks.
+    o_archive: Arc<dyn BodyArchive>,
 }
 
 impl SignalCollector {
@@ -66,13 +68,14 @@ impl SignalCollector {
             )),
             o_files: SignalFileFetcher::new(
                 o_fetcher,
-                o_archive,
+                Arc::clone(&o_archive),
                 Arc::clone(&o_clock),
                 o_config.u_max_signal_bytes,
             ),
             o_clock,
             o_ids,
             o_config,
+            o_archive,
         }
     }
 
@@ -127,8 +130,11 @@ impl SignalCollector {
             .map_err(|err_t| FetchError::Internal {
                 str_reason: err_t.to_string(),
             })?;
-        Ok(PageSignalReader::new(&self.o_config.str_product_token)
-            .observations(o_response, dt_observed_at))
+        Ok(PageSignalReader::new(
+            &self.o_config.str_product_token,
+            Arc::clone(&self.o_archive),
+        )
+        .observations(o_response, dt_observed_at))
     }
 
     /// Fetches as the single-flight leader and stores the result; the guard covers cancellation.

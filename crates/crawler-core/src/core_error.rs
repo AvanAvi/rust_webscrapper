@@ -21,6 +21,20 @@ pub enum CoreError {
         /// The URL with user info, query, and fragment removed; the original is never kept.
         str_redacted_url: String,
     },
+    /// A signal set or one of its observations does not resolve to matching archived bytes.
+    #[error("signal set entry {str_sha256} does not resolve: {str_reason}")]
+    SignalSetUnresolved {
+        /// Hash that failed.
+        str_sha256: String,
+        /// What went wrong.
+        str_reason: String,
+    },
+    /// A receipt breaks one of its consistency rules.
+    #[error("invalid receipt: {str_reason}")]
+    InvalidReceipt {
+        /// Which rule was broken.
+        str_reason: String,
+    },
     /// The archive has no room and every stored body is still referenced.
     #[error("body archive is full ({u_capacity} bytes) and every body is referenced")]
     ArchiveFull {

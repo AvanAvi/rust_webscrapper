@@ -1,12 +1,20 @@
 //! Reads page-level signals from a fetched page: X-Robots-Tag, robots meta, TDMRep header and meta.
 
+use std::sync::Arc;
+
 use crawler_core::signals::html_meta_extractor::HtmlMetaExtractor;
 use crawler_core::{
-    Excerpt, ParsedSignal, RobotsTagParser, RobotsTagSource, SignalContext, SignalKind,
-    SignalObservation, SignalParser, SignalStatus, TdmrepParser, TdmrepSource, Timestamp,
+    BodyArchive, CanonicalHeaders, Excerpt, Hasher, ParsedSignal, RobotsTagParser, RobotsTagSource,
+    SignalContext, SignalFailure, SignalKind, SignalObservation, SignalParser, SignalStatus,
+    TdmrepParser, TdmrepSource, Timestamp,
 };
 
 use crate::fetch_response::FetchResponse;
+
+/// Header names read for X-Robots-Tag.
+const VEC_STR_ROBOTS_HEADERS: [&str; 1] = ["x-robots-tag"];
+/// Header names read for TDMRep.
+const VEC_STR_TDMREP_HEADERS: [&str; 2] = ["tdm-reservation", "tdm-policy"];
 
 /// One page-level source: kind, whether it exists on the page, and what it parsed to.
 struct PageSource {
@@ -16,23 +24,35 @@ struct PageSource {
     b_present: bool,
     /// Parser output.
     e_parsed: ParsedSignal,
-    /// Matching header lines, for header kinds.
+    /// Canonical header lines, for header kinds.
     opt_o_excerpt: Option<Excerpt>,
+    /// Hash of the exact bytes the parser read.
+    opt_str_sha256: Option<String>,
+    /// `EvidenceNotArchived` when the header block could not be stored.
+    opt_e_failure: Option<SignalFailure>,
 }
 
-/// Turns one page response into four observations. Headers are read from all response headers
-/// (repeated X-Robots-Tag headers are merged); meta elements from the capped body only.
-#[derive(Debug, Clone)]
+/// Turns one page response into four observations.
+///
+/// Header kinds are parsed from the canonical text of their headers (`CanonicalHeaders`), which
+/// is archived; `content_sha256` resolves to exactly those bytes. If the archive refuses them,
+/// the kind is unreachable with `evidence_not_archived` (fail closed). Meta kinds are parsed from
+/// the capped page body; their `content_sha256` is the page body hash (`fetch.body_sha256`), which
+/// resolves once page bodies are stored (F7/F9). The archive reference of a header block is
+/// released at once, like an uncached signal file, until receipts hold references (F6).
 pub struct PageSignalReader {
     /// Product token for agent-scoped directives.
     str_product_token: String,
+    /// Content-addressed store for header blocks.
+    o_archive: Arc<dyn BodyArchive>,
 }
 
 impl PageSignalReader {
     /// Creates a reader for a product token.
-    pub fn new(str_product_token: &str) -> Self {
+    pub fn new(str_product_token: &str, o_archive: Arc<dyn BodyArchive>) -> Self {
         Self {
             str_product_token: str_product_token.to_owned(),
+            o_archive,
         }
     }
 
@@ -48,7 +68,8 @@ impl PageSignalReader {
             .collect()
     }
 
-    /// Parses the four page-level sources of a response.
+    /// Parses the four page-level sources of a response: the two header kinds, then the two
+    /// meta kinds.
     fn sources(&self, o_response: &FetchResponse) -> Vec<PageSource> {
         let str_path = url::Url::parse(&o_response.str_final_url)
             .map(|url_f| url_f.path().to_owned())
@@ -65,20 +86,20 @@ impl PageSignalReader {
         o_response: &FetchResponse,
         o_context: &SignalContext,
     ) -> Vec<PageSource> {
-        let o_robots = self.header_source(
-            o_response,
-            SignalKind::XRobotsTag,
-            &["x-robots-tag"],
-            o_context,
-        );
-        let vec_str_tdm = ["tdm-reservation", "tdm-policy"];
-        let o_tdm = self.header_source(
-            o_response,
-            SignalKind::TdmrepHeader,
-            &vec_str_tdm,
-            o_context,
-        );
-        vec![o_robots, o_tdm]
+        vec![
+            self.header_source(
+                o_response,
+                SignalKind::XRobotsTag,
+                &VEC_STR_ROBOTS_HEADERS,
+                o_context,
+            ),
+            self.header_source(
+                o_response,
+                SignalKind::TdmrepHeader,
+                &VEC_STR_TDMREP_HEADERS,
+                o_context,
+            ),
+        ]
     }
 
     /// Returns the robots meta and TDMRep meta sources.
@@ -87,27 +108,26 @@ impl PageSignalReader {
         o_response: &FetchResponse,
         o_context: &SignalContext,
     ) -> Vec<PageSource> {
+        let str_body_sha256 = Hasher::new().sha256_hex(&o_response.by_body);
         let vec_str_names: Vec<String> = HtmlMetaExtractor::new()
             .extract(&o_response.by_body)
             .into_iter()
             .map(|o_m| o_m.0)
             .collect();
-        let o_robots = self.meta_source(
-            o_response,
-            SignalKind::MetaRobots,
-            &vec_str_names,
-            o_context,
-        );
-        let o_tdm = self.meta_source(
-            o_response,
-            SignalKind::TdmrepMeta,
-            &vec_str_names,
-            o_context,
-        );
-        vec![o_robots, o_tdm]
+        [SignalKind::MetaRobots, SignalKind::TdmrepMeta]
+            .into_iter()
+            .map(|e_kind| {
+                self.meta_source(
+                    o_response,
+                    (e_kind, &str_body_sha256),
+                    &vec_str_names,
+                    o_context,
+                )
+            })
+            .collect()
     }
 
-    /// Parses a header-based source from the merged header block.
+    /// Parses a header-based source from its canonical header text and archives that text.
     fn header_source(
         &self,
         o_response: &FetchResponse,
@@ -115,45 +135,62 @@ impl PageSignalReader {
         vec_str_names: &[&str],
         o_context: &SignalContext,
     ) -> PageSource {
-        let vec_str_lines: Vec<String> = o_response
-            .vec_o_headers
-            .iter()
-            .filter(|o_h| vec_str_names.contains(&o_h.0.as_str()))
-            .map(|(str_n, str_v)| format!("{str_n}: {str_v}"))
-            .collect();
-        let by_block = o_response.header_block().into_bytes();
-        let e_parsed = self.parser_for(e_kind).parse(&by_block, o_context);
-        let opt_o_excerpt =
-            (!vec_str_lines.is_empty()).then(|| Excerpt::new(&vec_str_lines.join("\n")));
-        PageSource {
+        let str_block = CanonicalHeaders::new().render(&o_response.vec_o_headers, vec_str_names);
+        let b_present = !str_block.is_empty();
+        let o_source = PageSource {
             e_kind,
-            b_present: !vec_str_lines.is_empty(),
-            e_parsed,
-            opt_o_excerpt,
+            b_present,
+            e_parsed: self
+                .parser_for(e_kind)
+                .parse(str_block.as_bytes(), o_context),
+            opt_o_excerpt: b_present.then(|| Excerpt::new(&str_block)),
+            opt_str_sha256: None,
+            opt_e_failure: None,
+        };
+        self.archived(o_source, str_block.as_bytes())
+    }
+
+    /// Stores the bytes a header source was parsed from, failing closed when that is refused.
+    fn archived(&self, o_source: PageSource, by_block: &[u8]) -> PageSource {
+        match self.o_archive.store(by_block) {
+            Ok(str_sha256) => {
+                self.o_archive.release(&str_sha256);
+                PageSource {
+                    opt_str_sha256: Some(str_sha256),
+                    ..o_source
+                }
+            }
+            Err(_) => PageSource {
+                opt_e_failure: Some(SignalFailure::EvidenceNotArchived),
+                opt_o_excerpt: None,
+                ..o_source
+            },
         }
     }
 
-    /// Parses a meta-based source from the capped page body.
+    /// Parses a meta-based source from the capped page body, whose hash is the evidence.
     fn meta_source(
         &self,
         o_response: &FetchResponse,
-        e_kind: SignalKind,
+        o_kind_hash: (SignalKind, &str),
         vec_str_meta_names: &[String],
         o_context: &SignalContext,
     ) -> PageSource {
+        let (e_kind, str_body_sha256) = o_kind_hash;
         let str_token = self.str_product_token.to_ascii_lowercase();
         let b_present = vec_str_meta_names.iter().any(|str_name| match e_kind {
             SignalKind::MetaRobots => str_name == "robots" || *str_name == str_token,
             _ => str_name == "tdm-reservation" || str_name == "tdm-policy",
         });
-        let e_parsed = self
-            .parser_for(e_kind)
-            .parse(&o_response.by_body, o_context);
         PageSource {
             e_kind,
             b_present,
-            e_parsed,
+            e_parsed: self
+                .parser_for(e_kind)
+                .parse(&o_response.by_body, o_context),
             opt_o_excerpt: None,
+            opt_str_sha256: Some(str_body_sha256.to_owned()),
+            opt_e_failure: None,
         }
     }
 
@@ -167,6 +204,15 @@ impl PageSignalReader {
         }
     }
 
+    /// Returns the status of a source: unreachable when its evidence was not archived.
+    fn status(&self, o_source: &PageSource) -> SignalStatus {
+        match (o_source.opt_e_failure, o_source.b_present) {
+            (Some(_), _) => SignalStatus::Unreachable,
+            (None, true) => SignalStatus::Present,
+            (None, false) => SignalStatus::Absent,
+        }
+    }
+
     /// Builds the observation for one source.
     fn observation(
         &self,
@@ -174,24 +220,21 @@ impl PageSignalReader {
         o_response: &FetchResponse,
         dt_observed_at: &Timestamp,
     ) -> SignalObservation {
+        let e_status = self.status(&o_source);
         SignalObservation {
             e_kind: o_source.e_kind,
-            e_status: if o_source.b_present {
-                SignalStatus::Present
-            } else {
-                SignalStatus::Absent
-            },
+            e_status,
             str_source_url: o_response.str_final_url.clone(),
             dt_observed_at: dt_observed_at.clone(),
             opt_u_http_status: Some(o_response.u_status),
-            opt_str_content_sha256: None,
+            opt_str_content_sha256: o_source.opt_str_sha256,
             opt_o_excerpt: o_source.opt_o_excerpt,
             opt_str_final_url: Some(o_response.str_final_url.clone()),
             vec_o_redirects: o_response.vec_o_redirects.clone(),
             b_body_truncated: o_response.b_truncated,
             u_body_bytes_seen: o_response.u_body_bytes_seen,
-            opt_e_failure: None,
-            opt_e_parsed: o_source.b_present.then_some(o_source.e_parsed),
+            opt_e_failure: o_source.opt_e_failure,
+            opt_e_parsed: (e_status == SignalStatus::Present).then_some(o_source.e_parsed),
         }
     }
 }

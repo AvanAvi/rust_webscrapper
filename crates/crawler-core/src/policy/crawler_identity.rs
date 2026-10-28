@@ -92,6 +92,7 @@ impl CrawlerIdentity {
     pub fn to_record(&self) -> IdentityRecord {
         IdentityRecord {
             str_user_agent: self.user_agent(),
+            str_product_token: self.str_product_token.clone(),
             e_purpose: self.e_purpose,
             str_contact_url: self.str_contact_url.clone(),
         }

@@ -24,8 +24,8 @@ pub struct FetchRecord {
     #[serde(rename = "content_type", deserialize_with = "Option::deserialize")]
     pub opt_str_content_type: Option<String>,
     /// Body size in bytes after decompression.
-    #[serde(rename = "bytes")]
-    pub u_bytes: u64,
+    #[serde(rename = "body_bytes")]
+    pub u_body_bytes: u64,
     /// SHA-256 hex of the decompressed body.
     #[serde(rename = "body_sha256")]
     pub str_body_sha256: String,
@@ -35,4 +35,7 @@ pub struct FetchRecord {
     /// Addresses the connections were made to, after SSRF vetting.
     #[serde(rename = "resolved_ips")]
     pub vec_e_resolved_ips: Vec<IpAddr>,
+    /// Retry-After of a 429 or 503 response in milliseconds, capped at one hour.
+    #[serde(rename = "retry_after_ms", deserialize_with = "Option::deserialize")]
+    pub opt_u_retry_after_ms: Option<u64>,
 }

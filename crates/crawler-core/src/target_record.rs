@@ -18,4 +18,7 @@ pub struct TargetRecord {
     /// Host the decision applies to.
     #[serde(rename = "host")]
     pub str_host: String,
+    /// Link distance from the job's seeds (seeds are 0); checks depth and scope limits.
+    #[serde(rename = "depth")]
+    pub u_depth: u32,
 }

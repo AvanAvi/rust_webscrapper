@@ -168,8 +168,38 @@ async fn test_fake_fetcher_returns_canned_results() -> TestResult {
     );
     let o_record = o_canned.to_record(&Hasher::new());
     assert_eq!(
-        (o_record.u_bytes, o_record.opt_str_content_type.as_deref()),
+        (
+            o_record.u_body_bytes,
+            o_record.opt_str_content_type.as_deref()
+        ),
         (2, Some("text/html"))
     );
     Ok(())
+}
+
+#[test]
+fn test_fetch_errors_map_to_receipt_fetch_failures() {
+    use crawler_core::FetchFailure;
+    use crawler_fetch::FetchError;
+    let vec_o_cases = [
+        (FetchError::Timeout, FetchFailure::Timeout),
+        (
+            FetchError::BodyTooLarge { u_limit: 1 },
+            FetchFailure::BodyTooLarge,
+        ),
+        (
+            FetchError::TooManyRedirects { u_max: 5 },
+            FetchFailure::RedirectRefused,
+        ),
+        (FetchError::CredentialsInUrl, FetchFailure::InvalidRequest),
+        (
+            FetchError::Internal {
+                str_reason: String::from("x"),
+            },
+            FetchFailure::Internal,
+        ),
+    ];
+    for (err_fetch, e_expected) in vec_o_cases {
+        assert_eq!(err_fetch.fetch_failure(), e_expected, "{err_fetch:?}");
+    }
 }

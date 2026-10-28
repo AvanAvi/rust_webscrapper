@@ -141,6 +141,13 @@ re-checked. The failure is cached for the backoff period only, like any other fa
 Known gap until F6: a body is kept while the cache references it. Once the cache drops it,
 the body is evictable. Receipts must hold their own reference once the ledger exists.
 
+**Page-level evidence (F5.2).** X-Robots-Tag and TDMRep header signals are parsed from the
+canonical text of their headers (lowercased names, trimmed values, one line each, sorted by
+name, same-name lines in response order), and that text is archived; if the archive refuses
+it, the header signal is `evidence_not_archived` and denies, like a signal file. Meta signals
+record the page body hash; page bodies are not archived until F7/F9. See
+`docs/RECEIPT_SCHEMA.md`.
+
 ### Interpretations needing legal review (F5)
 
 - **Cross-host redirects of robots.txt are followed** (owner's default). §2.3.1.2 says
@@ -156,6 +163,10 @@ the body is evictable. Receipts must hold their own reference once the ledger ex
   "unavailable". A rate-limit response says nothing about the site's rules, so treating it as
   allow-all would be wrong.
 - **A refused address or an unsafe body counts as unreachable**, which denies for robots.txt.
+- **Duplicate TDMRep headers: the first in response order wins** (F5.2). The canonical header
+  text keeps same-name lines in response order (RFC 9110 §5.3 makes it significant), and the
+  TDMRep parser reads the first `tdm-reservation`. Sorting the values instead would let `0`
+  win over `1` and could hide a reservation.
 - **A body that cannot be archived denies every purpose** (F5.1), even when the signal itself
   would allow (a robots.txt 404, an ai.txt with no matching rule). This is stricter than the
   signals require; it exists so that no allow decision rests on evidence that cannot be

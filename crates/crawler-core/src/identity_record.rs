@@ -11,6 +11,9 @@ pub struct IdentityRecord {
     /// Exact User-Agent header sent.
     #[serde(rename = "user_agent")]
     pub str_user_agent: String,
+    /// RFC 9309 product token matched against robots.txt groups.
+    #[serde(rename = "product_token")]
+    pub str_product_token: String,
     /// Declared purpose of the crawl.
     #[serde(rename = "purpose")]
     pub e_purpose: Purpose,

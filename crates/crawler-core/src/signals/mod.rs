@@ -2,6 +2,7 @@
 
 pub mod ai_txt_finding;
 pub mod ai_txt_parser;
+pub mod canonical_headers;
 pub mod content_signal;
 pub mod content_signal_parser;
 pub mod crawl_delay_parser;

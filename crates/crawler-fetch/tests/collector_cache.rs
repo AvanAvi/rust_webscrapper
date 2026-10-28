@@ -228,6 +228,12 @@ async fn test_rate_limit_and_unavailable_carry_a_capped_retry_after() -> TestRes
         .fetch(FetchRequest::new(o_h.url("sig-429.mock", "/page")?))
         .await?;
     assert_eq!(o_429.opt_dur_retry_after, Some(Duration::from_secs(120)));
+    let o_record = o_429.to_record(&crawler_core::Hasher::new());
+    assert_eq!(
+        o_record.opt_u_retry_after_ms,
+        Some(120_000),
+        "receipt keeps it in ms"
+    );
     let o_503 = o_h
         .o_client
         .fetch(FetchRequest::new(o_h.url("sig-503.mock", "/page")?))
