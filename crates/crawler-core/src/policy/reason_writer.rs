@@ -162,6 +162,14 @@ impl ReasonWriter {
         format!("{} does not reserve this URL.", self.source(o_obs))
     }
 
+    /// Describes a fetched signal whose body could not be archived.
+    pub fn evidence_not_archived(&self, o_obs: &SignalObservation) -> String {
+        format!(
+            "{} was fetched but its body could not be archived as evidence, so no decision may rely on it and the URL is denied until it can be stored.",
+            self.source(o_obs)
+        )
+    }
+
     /// Describes a signal source that does not exist.
     pub fn absent(&self, o_obs: &SignalObservation) -> String {
         if o_obs.e_kind == SignalKind::RobotsTxt {
@@ -219,9 +227,10 @@ impl ReasonWriter {
 
     /// Describes how retrieval ended.
     fn status(&self, o_obs: &SignalObservation) -> String {
-        o_obs.opt_u_http_status.map_or_else(
-            || String::from("no HTTP response"),
-            |u_s| format!("HTTP {u_s}"),
-        )
+        match (o_obs.opt_u_http_status, o_obs.opt_e_failure) {
+            (Some(u_status), _) => format!("HTTP {u_status}"),
+            (None, Some(e_failure)) => format!("no HTTP response: {}", e_failure.label()),
+            (None, None) => String::from("no HTTP response"),
+        }
     }
 }

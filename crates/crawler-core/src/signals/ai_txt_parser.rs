@@ -48,13 +48,19 @@ impl SignalParser for AiTxtParser {
 
     /// Returns the ai.txt finding for the context's URL.
     fn parse(&self, by_input: &[u8], o_context: &SignalContext) -> ParsedSignal {
-        let o_doc = self.o_robots.parse_document(by_input);
+        self.evaluate_document(&self.o_robots.parse_document(by_input), o_context)
+    }
+}
+
+impl AiTxtParser {
+    /// Returns the ai.txt finding for an already parsed document (robots-style), so it can be cached.
+    pub fn evaluate_document(&self, o_doc: &RobotsTxt, o_context: &SignalContext) -> ParsedSignal {
         let (opt_str_agent, opt_o_path_rule) =
             o_doc.decide(o_context.product_token(), o_context.path());
         let (opt_o_rule, opt_str_ext) = match opt_o_path_rule {
             Some(o_rule) => (Some(o_rule), None),
             None => self
-                .decide_by_extension(&o_doc, o_context)
+                .decide_by_extension(o_doc, o_context)
                 .map_or((None, None), |(o_r, str_e)| (Some(o_r), Some(str_e))),
         };
         let o_report = o_doc.evaluate(o_context);

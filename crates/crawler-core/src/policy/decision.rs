@@ -5,6 +5,7 @@ use crate::outcome::Outcome;
 use crate::policy::policy_rule::PolicyRule;
 use crate::policy::signal_verdict::SignalVerdict;
 use crate::purpose::Purpose;
+use crate::timestamp::Timestamp;
 
 /// Outcome, deciding rule, and the verdict of every consulted signal.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,13 +75,14 @@ impl Decision {
             .collect()
     }
 
-    /// Returns the receipt form of the decision.
-    pub fn to_record(&self) -> DecisionRecord {
+    /// Returns the receipt form of the decision, made at `dt_decided_at` (from the `Clock`).
+    pub fn to_record(&self, dt_decided_at: Timestamp) -> DecisionRecord {
         DecisionRecord {
             e_outcome: self.e_outcome,
-            str_matched_rule: self.e_rule.as_str().to_owned(),
+            e_matched_rule: self.e_rule,
             vec_str_reasons: self.reasons(),
             str_policy_version: self.str_policy_version.clone(),
+            dt_decided_at,
         }
     }
 }

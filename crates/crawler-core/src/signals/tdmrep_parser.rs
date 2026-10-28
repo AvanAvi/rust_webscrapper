@@ -1,21 +1,15 @@
 //! Parses TDMRep headers, meta elements, and `/.well-known/tdmrep.json`.
 
-use serde_json::Value;
-
 use crate::signal_kind::SignalKind;
 use crate::signals::header_block::HeaderBlock;
 use crate::signals::html_meta_extractor::HtmlMetaExtractor;
 use crate::signals::parsed_signal::ParsedSignal;
-use crate::signals::pattern_matcher::PatternMatcher;
 use crate::signals::signal_context::SignalContext;
 use crate::signals::signal_parser::SignalParser;
 use crate::signals::tdmrep_finding::TdmrepFinding;
+use crate::signals::tdmrep_rules::TdmrepRules;
 use crate::signals::tdmrep_source::TdmrepSource;
 
-/// Largest tdmrep.json read, in bytes.
-const U_MAX_TDMREP_JSON_BYTES: usize = 1024 * 1024;
-/// Most tdmrep.json rules examined.
-const U_MAX_TDMREP_ENTRIES: usize = 10_000;
 /// Longest policy URL kept, in bytes.
 const U_MAX_POLICY_URL_BYTES: usize = 2048;
 
@@ -59,48 +53,7 @@ impl TdmrepParser {
 
     /// Returns the finding of the first tdmrep.json rule whose location matches the path.
     fn parse_well_known(&self, by_input: &[u8], str_path: &str) -> TdmrepFinding {
-        let by_kept = by_input.get(..U_MAX_TDMREP_JSON_BYTES).unwrap_or(by_input);
-        let Ok(Value::Array(vec_e_entries)) = serde_json::from_slice::<Value>(by_kept) else {
-            return TdmrepFinding {
-                u_protocol_errors: 1,
-                ..TdmrepFinding::default()
-            };
-        };
-        let mut u_errors = 0u32;
-        for e_entry in vec_e_entries.iter().take(U_MAX_TDMREP_ENTRIES) {
-            match e_entry.get("location").and_then(Value::as_str) {
-                None => u_errors = u_errors.saturating_add(1),
-                Some(str_loc) if PatternMatcher::new().matches(str_loc, str_path) => {
-                    return self.finding_for_entry(e_entry, str_loc, u_errors);
-                }
-                Some(_) => {}
-            }
-        }
-        TdmrepFinding {
-            u_protocol_errors: u_errors,
-            ..TdmrepFinding::default()
-        }
-    }
-
-    /// Builds the finding for a matching tdmrep.json rule.
-    fn finding_for_entry(
-        &self,
-        e_entry: &Value,
-        str_location: &str,
-        u_errors: u32,
-    ) -> TdmrepFinding {
-        let opt_b_reserved = match e_entry.get("tdm-reservation").and_then(Value::as_u64) {
-            Some(1) => Some(true),
-            Some(0) => Some(false),
-            _ => None,
-        };
-        let opt_str_policy = e_entry.get("tdm-policy").and_then(Value::as_str);
-        TdmrepFinding {
-            opt_b_reserved,
-            opt_str_policy_url: opt_str_policy.map(|str_p| self.cap(str_p)),
-            opt_str_matched_location: Some(self.cap(str_location)),
-            u_protocol_errors: u_errors.saturating_add(u32::from(opt_b_reserved.is_none())),
-        }
+        TdmrepRules::parse(by_input).evaluate(str_path)
     }
 
     /// Builds a finding from a header or meta reservation value and policy URL.

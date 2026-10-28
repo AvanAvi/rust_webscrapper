@@ -4,6 +4,7 @@ use crate::policy::policy_rule::PolicyRule;
 use crate::policy::reason_writer::ReasonWriter;
 use crate::policy::signal_verdict::SignalVerdict;
 use crate::purpose::Purpose;
+use crate::signal_failure::SignalFailure;
 use crate::signal_kind::SignalKind;
 use crate::signal_observation::SignalObservation;
 use crate::signal_status::SignalStatus;
@@ -13,8 +14,9 @@ use crate::signals::robots_finding::RobotsFinding;
 use crate::signals::robots_tag_finding::RobotsTagFinding;
 use crate::signals::tdmrep_finding::TdmrepFinding;
 
-/// Decides what one signal means for a purpose. Only present signals can deny, with one
-/// exception RFC 9309 requires: an unreachable robots.txt is a full disallow.
+/// Decides what one signal means for a purpose. Only present signals can deny, with two
+/// exceptions: an unreachable robots.txt is a full disallow (RFC 9309), and a signal whose body
+/// could not be archived denies every purpose, because no decision may rest on missing evidence.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SignalJudge {
     /// Sentence builder for reasons.
@@ -29,6 +31,10 @@ impl SignalJudge {
 
     /// Returns the verdict of one observation for the purpose.
     pub fn judge(&self, o_obs: &SignalObservation, e_purpose: Purpose) -> SignalVerdict {
+        if o_obs.opt_e_failure == Some(SignalFailure::EvidenceNotArchived) {
+            let str_reason = self.o_writer.evidence_not_archived(o_obs);
+            return self.verdict(o_obs, Some(PolicyRule::EvidenceNotArchived), str_reason);
+        }
         match o_obs.e_status {
             SignalStatus::Absent => self.verdict(o_obs, None, self.o_writer.absent(o_obs)),
             SignalStatus::Unreachable => self.judge_unreachable(o_obs),

@@ -63,7 +63,7 @@ fn test_excerpt_is_capped_at_a_char_boundary_and_marked() -> TestResult {
     let o_excerpt = Excerpt::new(&str_long);
     assert_eq!(o_excerpt.as_str().len(), U_MAX_EXCERPT_BYTES - 1);
     assert!(o_excerpt.is_truncated());
-    assert_eq!(o_excerpt.original_bytes(), str_long.len() as u64);
+    assert_eq!(o_excerpt.text_bytes(), str_long.len() as u64);
     let o_decoded: Excerpt = serde_json::from_str(&serde_json::to_string(&o_excerpt)?)?;
     assert_eq!(o_decoded, o_excerpt);
     Ok(())
@@ -76,7 +76,7 @@ fn test_short_excerpt_is_complete() -> TestResult {
     let str_json = serde_json::to_string(&o_excerpt)?;
     assert_eq!(
         str_json,
-        "{\"text\":\"Allow: /\",\"truncated\":false,\"original_bytes\":8}"
+        "{\"text\":\"Allow: /\",\"truncated\":false,\"text_bytes\":8}"
     );
     Ok(())
 }
@@ -93,11 +93,11 @@ fn test_excerpt_at_exact_cap_is_not_truncated() {
 fn test_inconsistent_excerpts_are_rejected() {
     let str_cap_text = "c".repeat(U_MAX_EXCERPT_BYTES);
     let vec_str_bad = [
-        String::from("{\"text\":\"abc\",\"truncated\":true,\"original_bytes\":5000}"),
-        String::from("{\"text\":\"abc\",\"truncated\":false,\"original_bytes\":4}"),
-        String::from("{\"text\":\"abc\",\"truncated\":true,\"original_bytes\":3}"),
-        format!("{{\"text\":\"{str_cap_text}\",\"truncated\":false,\"original_bytes\":9000}}"),
-        String::from("{\"text\":\"abc\",\"truncated\":false,\"original_bytes\":3,\"x\":1}"),
+        String::from("{\"text\":\"abc\",\"truncated\":true,\"text_bytes\":5000}"),
+        String::from("{\"text\":\"abc\",\"truncated\":false,\"text_bytes\":4}"),
+        String::from("{\"text\":\"abc\",\"truncated\":true,\"text_bytes\":3}"),
+        format!("{{\"text\":\"{str_cap_text}\",\"truncated\":false,\"text_bytes\":9000}}"),
+        String::from("{\"text\":\"abc\",\"truncated\":false,\"text_bytes\":3,\"x\":1}"),
         String::from("{\"text\":\"abc\",\"truncated\":false}"),
         String::from("\"plain string\""),
     ];

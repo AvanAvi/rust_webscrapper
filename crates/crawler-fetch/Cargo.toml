@@ -17,14 +17,15 @@ crawler-core = { path = "../crawler-core" }
 http.workspace = true
 reqwest.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["net"] }
+time.workspace = true
+tokio = { workspace = true, features = ["net", "sync"] }
 tower.workspace = true
 tower-http = { workspace = true, features = ["decompression-gzip", "decompression-deflate", "decompression-br"] }
 url.workspace = true
 
 [dev-dependencies]
 mock-site = { path = "../mock-site" }
-tokio = { workspace = true, features = ["rt", "macros"] }
+tokio = { workspace = true, features = ["rt", "macros", "time"] }
 
 [lints]
 workspace = true

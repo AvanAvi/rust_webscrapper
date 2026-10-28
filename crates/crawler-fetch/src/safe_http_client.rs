@@ -8,6 +8,7 @@ use reqwest::redirect::Policy;
 use url::Url;
 
 use crate::address_policy::AddressPolicy;
+use crate::body_budget::{BodyBudget, BodyOverflow};
 use crate::body_reader::BodyReader;
 use crate::client_config::ClientConfig;
 use crate::fetch_error::FetchError;
@@ -93,7 +94,12 @@ impl SafeHttpClient {
             .send()
             .await;
         let o_response = res_o_response.map_err(|err_send| self.send_error(&err_send, &o_log))?;
-        self.finish(o_response, &o_log, dt_started_at).await
+        self.finish(
+            o_response,
+            &o_log,
+            (dt_started_at, self.budget_for(&o_request)),
+        )
+        .await
     }
 
     /// Reads and decodes the body within limits and assembles the response.
@@ -101,21 +107,30 @@ impl SafeHttpClient {
         &self,
         mut o_response: reqwest::Response,
         o_log: &Arc<FetchLog>,
-        dt_started_at: Timestamp,
+        o_start: (Timestamp, BodyBudget),
     ) -> Result<FetchResponse, FetchError> {
-        let o_head = ResponseHead::from_response(&o_response);
+        let (dt_started_at, o_budget) = o_start;
+        let o_head = ResponseHead::from_response(&o_response, self.o_clock.now());
         let o_reader = BodyReader::new(self.o_limits);
-        let by_encoded = o_reader.read_encoded(&mut o_response).await?;
-        let u_encoded_bytes = by_encoded.len() as u64;
-        let by_body = o_reader
-            .decode(o_head.opt_str_encoding.as_deref(), by_encoded)
+        let o_encoded = o_reader.read_encoded(&mut o_response, o_budget).await?;
+        let u_encoded_bytes = o_encoded.by_body.len() as u64;
+        let o_body = o_reader
+            .decode(o_head.opt_str_encoding.as_deref(), o_encoded, o_budget)
             .await?;
-        Ok(o_head.into_response(
-            by_body,
-            u_encoded_bytes,
-            o_log,
-            (dt_started_at, self.now()?),
-        ))
+        Ok(o_head.into_response(o_body, u_encoded_bytes, o_log, (dt_started_at, self.now()?)))
+    }
+
+    /// Returns the request's budget, never above the client cap; pages default to rejecting.
+    fn budget_for(&self, o_request: &FetchRequest) -> BodyBudget {
+        let o_default = BodyBudget {
+            u_cap: self.o_limits.u_max_body_bytes,
+            e_overflow: BodyOverflow::Reject,
+        };
+        let o_budget = o_request.opt_o_budget.unwrap_or(o_default);
+        BodyBudget {
+            u_cap: o_budget.u_cap.min(self.o_limits.u_max_body_bytes),
+            e_overflow: o_budget.e_overflow,
+        }
     }
 
     /// Builds the per-fetch reqwest client.

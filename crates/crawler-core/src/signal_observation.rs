@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::excerpt::Excerpt;
+use crate::redirect_hop::RedirectHop;
+use crate::signal_failure::SignalFailure;
 use crate::signal_kind::SignalKind;
 use crate::signal_status::SignalStatus;
 use crate::signals::parsed_signal::ParsedSignal;
@@ -33,6 +35,21 @@ pub struct SignalObservation {
     /// Size-capped excerpt of the relevant part of the source.
     #[serde(rename = "excerpt", deserialize_with = "Option::deserialize")]
     pub opt_o_excerpt: Option<Excerpt>,
+    /// URL of the final response after redirects; `None` when there was no response.
+    #[serde(rename = "final_url", deserialize_with = "Option::deserialize")]
+    pub opt_str_final_url: Option<String>,
+    /// Redirect responses followed while fetching the source, in order.
+    #[serde(rename = "redirects")]
+    pub vec_o_redirects: Vec<RedirectHop>,
+    /// Whether the body was cut at the signal-file cap; `content_sha256` covers the stored prefix.
+    #[serde(rename = "body_truncated")]
+    pub b_body_truncated: bool,
+    /// Decoded body bytes actually received before reading stopped (at least the stored bytes).
+    #[serde(rename = "body_bytes_seen")]
+    pub u_body_bytes_seen: u64,
+    /// Why the source was unreachable; `None` otherwise.
+    #[serde(rename = "failure", deserialize_with = "Option::deserialize")]
+    pub opt_e_failure: Option<SignalFailure>,
     /// Typed result of parsing the source; `null` when nothing was parsed (absent, unreachable).
     #[serde(rename = "parsed", deserialize_with = "Option::deserialize")]
     pub opt_e_parsed: Option<ParsedSignal>,

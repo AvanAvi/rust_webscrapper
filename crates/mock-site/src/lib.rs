@@ -7,6 +7,7 @@ mod recorded_request;
 mod request_log;
 mod scenario_bodies;
 mod scenario_router;
+mod signal_scenarios;
 
 pub use mock_site::MockSite;
 pub use recorded_request::RecordedRequest;

@@ -1,6 +1,7 @@
 //! Holds the result of one completed fetch.
 
 use std::net::IpAddr;
+use std::time::Duration;
 
 use crawler_core::{FetchRecord, Hasher, RedirectHop, Timestamp};
 
@@ -21,8 +22,13 @@ pub struct FetchResponse {
     pub vec_o_redirects: Vec<RedirectHop>,
     /// Vetted addresses the connector was given.
     pub vec_e_resolved_ips: Vec<IpAddr>,
-    /// Retry-After in seconds, when sent as a number.
-    pub opt_u_retry_after_secs: Option<u64>,
+    /// Whether the body was cut at the request's cap (truncate mode only).
+    pub b_truncated: bool,
+    /// Decoded body bytes received before reading stopped; above the body length only when
+    /// truncated.
+    pub u_body_bytes_seen: u64,
+    /// Retry-After of a 429 or 503 response, capped at `DUR_MAX_RETRY_AFTER`.
+    pub opt_dur_retry_after: Option<Duration>,
     /// Time the request started.
     pub dt_started_at: Timestamp,
     /// Time the body was complete.
@@ -53,10 +59,13 @@ impl FetchResponse {
             dt_finished_at: self.dt_finished_at.clone(),
             u_http_status: self.u_status,
             opt_str_content_type: self.header("content-type").map(str::to_owned),
-            u_bytes: self.by_body.len() as u64,
+            u_body_bytes: self.by_body.len() as u64,
             str_body_sha256: o_hasher.sha256_hex(&self.by_body),
             vec_o_redirects: self.vec_o_redirects.clone(),
             vec_e_resolved_ips: self.vec_e_resolved_ips.clone(),
+            opt_u_retry_after_ms: self
+                .opt_dur_retry_after
+                .map(|dur_wait| u64::try_from(dur_wait.as_millis()).unwrap_or(u64::MAX)),
         }
     }
 }

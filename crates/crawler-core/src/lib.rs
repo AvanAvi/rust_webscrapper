@@ -1,27 +1,35 @@
 //! Core domain types for URLs, receipts, canonical encoding, hashing, clocks, and IDs.
 #![forbid(unsafe_code)]
 
+mod archive_state;
+mod body_archive;
 mod canonical_encoder;
 mod clock;
 mod core_error;
+mod crawler_record;
 mod decision_record;
 mod excerpt;
 mod excerpt_fields;
 mod fake_clock;
+mod fetch_failure;
 mod fetch_record;
 mod hasher;
 mod id_source;
 mod identity_record;
+mod memory_body_archive;
 mod outcome;
 mod percent_normalizer;
 pub mod policy;
 mod purpose;
 mod random_id_source;
 mod receipt;
+mod receipt_submission;
 mod redirect_hop;
 mod sequential_id_source;
+mod signal_failure;
 mod signal_kind;
 mod signal_observation;
+mod signal_set_archive;
 mod signal_status;
 pub mod signals;
 mod system_clock;
@@ -29,16 +37,23 @@ mod target_record;
 mod timestamp;
 mod url_normalizer;
 
+pub use body_archive::BodyArchive;
 pub use canonical_encoder::CanonicalEncoder;
 pub use clock::Clock;
 pub use core_error::CoreError;
+pub use crawler_record::{CrawlerRecord, STR_CRAWLER_NAME};
 pub use decision_record::DecisionRecord;
 pub use excerpt::{Excerpt, U_MAX_EXCERPT_BYTES};
 pub use fake_clock::FakeClock;
+pub use fetch_failure::FetchFailure;
 pub use fetch_record::FetchRecord;
 pub use hasher::Hasher;
 pub use id_source::IdSource;
 pub use identity_record::IdentityRecord;
+pub use memory_body_archive::{
+    MemoryBodyArchive, U_DEFAULT_ARCHIVE_CAPACITY, U_DEFAULT_ARCHIVE_MAX_ENTRIES,
+    U_MAX_ARCHIVED_BODY_BYTES,
+};
 pub use outcome::Outcome;
 pub use percent_normalizer::PercentNormalizer;
 pub use policy::crawler_identity::CrawlerIdentity;
@@ -49,13 +64,17 @@ pub use policy::signal_verdict::SignalVerdict;
 pub use purpose::Purpose;
 pub use random_id_source::RandomIdSource;
 pub use receipt::{Receipt, U_RECEIPT_SCHEMA_VERSION};
+pub use receipt_submission::ReceiptSubmission;
 pub use redirect_hop::RedirectHop;
 pub use sequential_id_source::SequentialIdSource;
+pub use signal_failure::SignalFailure;
 pub use signal_kind::SignalKind;
 pub use signal_observation::SignalObservation;
+pub use signal_set_archive::SignalSetArchive;
 pub use signal_status::SignalStatus;
 pub use signals::ai_txt_finding::AiTxtFinding;
 pub use signals::ai_txt_parser::AiTxtParser;
+pub use signals::canonical_headers::CanonicalHeaders;
 pub use signals::content_signal::ContentSignal;
 pub use signals::crawl_delay_parser::{CrawlDelayParser, U_MAX_CRAWL_DELAY_MS};
 pub use signals::parsed_signal::ParsedSignal;
@@ -74,6 +93,7 @@ pub use signals::signal_parser::SignalParser;
 pub use signals::signal_set::SignalSet;
 pub use signals::tdmrep_finding::TdmrepFinding;
 pub use signals::tdmrep_parser::TdmrepParser;
+pub use signals::tdmrep_rules::{TdmrepEntry, TdmrepRules};
 pub use signals::tdmrep_source::TdmrepSource;
 pub use system_clock::SystemClock;
 pub use target_record::TargetRecord;

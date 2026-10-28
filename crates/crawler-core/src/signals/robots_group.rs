@@ -17,6 +17,21 @@ pub struct RobotsGroup {
 }
 
 impl RobotsGroup {
+    /// Returns an estimate of the heap bytes the group holds (lengths, not allocator slack).
+    pub fn heap_bytes(&self) -> usize {
+        let u_agents: usize = self
+            .vec_str_agents
+            .iter()
+            .map(|str_agent| size_of::<String>() + str_agent.len())
+            .sum();
+        let u_rules: usize = self
+            .vec_o_rules
+            .iter()
+            .map(|o_rule| size_of::<RobotsRule>() + o_rule.str_pattern.len())
+            .sum();
+        u_agents + u_rules
+    }
+
     /// Returns whether a user-agent line equals the product token, ignoring ASCII case.
     pub fn has_agent(&self, str_token: &str) -> bool {
         self.vec_str_agents

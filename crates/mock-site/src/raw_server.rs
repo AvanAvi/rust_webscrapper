@@ -11,6 +11,8 @@ use crate::request_log::RequestLog;
 
 /// Largest request head read, in bytes.
 const U_MAX_HEAD_BYTES: usize = 8192;
+/// Delay before the slow host answers.
+const DUR_SLOW_ANSWER: Duration = Duration::from_millis(600);
 /// Pause between dripped bytes.
 const DUR_DRIP_INTERVAL: Duration = Duration::from_millis(300);
 
@@ -43,6 +45,10 @@ impl RawServer {
         let str_host = self.host_of(&str_head);
         let str_path = str_head.split_whitespace().nth(1).unwrap_or("/").to_owned();
         self.o_log.record(&str_host, &str_path);
+        if str_host == "sig-slow.mock" {
+            self.answer_slowly(&mut o_stream).await;
+            return;
+        }
         let (str_status, by_chunk, dur_pause) = self.script_for(&str_host);
         if o_stream.write_all(str_status.as_bytes()).await.is_ok() {
             self.stream_forever(&mut o_stream, &by_chunk, dur_pause)
@@ -53,7 +59,7 @@ impl RawServer {
     /// Returns the status and headers, the repeated chunk, and the pause for a host.
     fn script_for(&self, str_host: &str) -> (&'static str, Vec<u8>, Duration) {
         match str_host {
-            "drip.mock" => (
+            "drip.mock" | "sig-timeout.mock" => (
                 "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n",
                 vec![b'x'],
                 DUR_DRIP_INTERVAL,
@@ -69,6 +75,18 @@ impl RawServer {
                 Duration::ZERO,
             ),
         }
+    }
+
+    /// Waits, then sends one complete small robots.txt and closes (single-flight takeover tests).
+    async fn answer_slowly(&self, o_stream: &mut TcpStream) {
+        tokio::time::sleep(DUR_SLOW_ANSWER).await;
+        let str_body = "User-agent: *\nDisallow: /slow/\n";
+        let str_head = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n";
+        let str_response = format!(
+            "{str_head}Content-Length: {}\r\n\r\n{str_body}",
+            str_body.len()
+        );
+        let _ = o_stream.write_all(str_response.as_bytes()).await;
     }
 
     /// Writes the chunk repeatedly until the client goes away.

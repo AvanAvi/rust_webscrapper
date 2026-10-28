@@ -109,3 +109,30 @@ pub enum FetchError {
         str_reason: String,
     },
 }
+
+impl FetchError {
+    /// Returns the receipt's `fetch_failure` for an allowed page fetch that ended in this error.
+    /// The match is exhaustive, so a new error variant must be mapped here.
+    pub fn fetch_failure(&self) -> crawler_core::FetchFailure {
+        use crawler_core::FetchFailure as Failure;
+        match self {
+            Self::Timeout => Failure::Timeout,
+            Self::BlockedAddress { .. } => Failure::BlockedAddress,
+            Self::DnsFailure { .. } => Failure::DnsFailure,
+            Self::Connect { .. } | Self::Transport { .. } => Failure::ConnectionFailed,
+            Self::TooManyRedirects { .. }
+            | Self::RedirectDowngrade { .. }
+            | Self::RedirectOutOfScope { .. } => Failure::RedirectRefused,
+            Self::BodyTooLarge { .. } => Failure::BodyTooLarge,
+            Self::CompressionRatioExceeded { .. }
+            | Self::UnsupportedEncoding { .. }
+            | Self::Decode { .. } => Failure::BadBody,
+            Self::InvalidUrl { .. } | Self::UnsupportedScheme { .. } | Self::CredentialsInUrl => {
+                Failure::InvalidRequest
+            }
+            Self::TestPolicyUnavailable
+            | Self::PlaceholderContact { .. }
+            | Self::Internal { .. } => Failure::Internal,
+        }
+    }
+}

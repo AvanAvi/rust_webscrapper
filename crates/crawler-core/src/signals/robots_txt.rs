@@ -32,6 +32,14 @@ impl RobotsTxt {
         }
     }
 
+    /// Returns an estimate of the heap bytes the parsed groups hold.
+    pub fn heap_bytes(&self) -> usize {
+        self.vec_o_groups
+            .iter()
+            .map(|o_group| size_of::<RobotsGroup>() + o_group.heap_bytes())
+            .sum()
+    }
+
     /// Returns the groups in file order.
     pub fn groups(&self) -> &[RobotsGroup] {
         &self.vec_o_groups

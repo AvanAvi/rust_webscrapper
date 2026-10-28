@@ -1,11 +1,15 @@
 //! Captures the status line and headers of a response before its body is read.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use crawler_core::Timestamp;
+use time::OffsetDateTime;
 
+use crate::body_reader::ReadBody;
 use crate::fetch_log::FetchLog;
 use crate::fetch_response::FetchResponse;
+use crate::retry_after_parser::RetryAfterParser;
 
 /// Status, final URL, headers, encoding, and Retry-After of a response.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,13 +22,13 @@ pub struct ResponseHead {
     pub vec_o_headers: Vec<(String, String)>,
     /// Content-Encoding, if any.
     pub opt_str_encoding: Option<String>,
-    /// Retry-After as whole seconds, when numeric.
-    pub opt_u_retry_after_secs: Option<u64>,
+    /// Retry-After of a 429 or 503 response, capped.
+    pub opt_dur_retry_after: Option<Duration>,
 }
 
 impl ResponseHead {
-    /// Captures the head of a reqwest response.
-    pub fn from_response(o_response: &reqwest::Response) -> Self {
+    /// Captures the head of a reqwest response; `dt_now` resolves date-form Retry-After values.
+    pub fn from_response(o_response: &reqwest::Response, dt_now: OffsetDateTime) -> Self {
         let vec_o_headers = Self::headers_of(o_response);
         let cb_find = |str_name: &str| {
             vec_o_headers
@@ -33,14 +37,15 @@ impl ResponseHead {
                 .map(|o_h| o_h.1.clone())
         };
         let opt_str_encoding = cb_find("content-encoding");
-        let opt_u_retry_after_secs =
-            cb_find("retry-after").and_then(|str_v| str_v.trim().parse::<u64>().ok());
+        let u_status = o_response.status().as_u16();
+        let opt_dur_retry_after =
+            RetryAfterParser::new().parse(u_status, cb_find("retry-after").as_deref(), dt_now);
         Self {
-            u_status: o_response.status().as_u16(),
+            u_status,
             str_final_url: o_response.url().to_string(),
             vec_o_headers,
             opt_str_encoding,
-            opt_u_retry_after_secs,
+            opt_dur_retry_after,
         }
     }
 
@@ -61,7 +66,7 @@ impl ResponseHead {
     /// Combines the head with the decoded body and the fetch log into the final response.
     pub fn into_response(
         self,
-        by_body: Vec<u8>,
+        o_body: ReadBody,
         u_encoded_bytes: u64,
         o_log: &Arc<FetchLog>,
         o_times: (Timestamp, Timestamp),
@@ -70,11 +75,13 @@ impl ResponseHead {
             u_status: self.u_status,
             str_final_url: self.str_final_url,
             vec_o_headers: self.vec_o_headers,
-            by_body,
+            by_body: o_body.by_body,
             u_encoded_bytes,
             vec_o_redirects: o_log.redirects(),
             vec_e_resolved_ips: o_log.ips(),
-            opt_u_retry_after_secs: self.opt_u_retry_after_secs,
+            b_truncated: o_body.b_truncated,
+            u_body_bytes_seen: o_body.u_bytes_seen,
+            opt_dur_retry_after: self.opt_dur_retry_after,
             dt_started_at: o_times.0,
             dt_finished_at: o_times.1,
         }

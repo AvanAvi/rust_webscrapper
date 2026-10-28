@@ -21,6 +21,46 @@ pub enum CoreError {
         /// The URL with user info, query, and fragment removed; the original is never kept.
         str_redacted_url: String,
     },
+    /// A signal set or one of its observations does not resolve to matching archived bytes.
+    #[error("signal set entry {str_sha256} does not resolve: {str_reason}")]
+    SignalSetUnresolved {
+        /// Hash that failed.
+        str_sha256: String,
+        /// What went wrong.
+        str_reason: String,
+    },
+    /// A receipt breaks one of its consistency rules.
+    #[error("invalid receipt: {str_reason}")]
+    InvalidReceipt {
+        /// Which rule was broken.
+        str_reason: String,
+    },
+    /// The archive has no room and every stored body is still referenced.
+    #[error("body archive is full ({u_capacity} bytes) and every body is referenced")]
+    ArchiveFull {
+        /// Capacity in bytes.
+        u_capacity: usize,
+    },
+    /// The archive holds its maximum number of bodies and every one is still referenced.
+    #[error(
+        "body archive holds its maximum of {u_max_entries} bodies and every body is referenced"
+    )]
+    ArchiveTooManyEntries {
+        /// Entry limit.
+        u_max_entries: usize,
+    },
+    /// A body is larger than the archive accepts.
+    #[error("body exceeds the archive limit of {u_limit} bytes")]
+    ArchiveBodyTooLarge {
+        /// Size limit in bytes.
+        u_limit: usize,
+    },
+    /// No body is stored under a hash.
+    #[error("no archived body with SHA-256 {str_sha256}")]
+    UnknownBody {
+        /// The hash looked up.
+        str_sha256: String,
+    },
     /// A crawler identity is malformed or impersonates another crawler.
     #[error("invalid crawler identity: {str_reason}")]
     InvalidIdentity {

@@ -2,6 +2,7 @@
 
 pub mod ai_txt_finding;
 pub mod ai_txt_parser;
+pub mod canonical_headers;
 pub mod content_signal;
 pub mod content_signal_parser;
 pub mod crawl_delay_parser;
@@ -28,4 +29,5 @@ pub mod signal_parser;
 pub mod signal_set;
 pub mod tdmrep_finding;
 pub mod tdmrep_parser;
+pub mod tdmrep_rules;
 pub mod tdmrep_source;

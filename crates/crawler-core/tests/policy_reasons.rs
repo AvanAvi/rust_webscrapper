@@ -23,6 +23,11 @@ fn present(
         opt_u_http_status: Some(200),
         opt_str_content_sha256: None,
         opt_o_excerpt: None,
+        opt_str_final_url: None,
+        vec_o_redirects: Vec::new(),
+        b_body_truncated: false,
+        u_body_bytes_seen: 0,
+        opt_e_failure: None,
         opt_e_parsed: Some(e_parsed),
     })
 }

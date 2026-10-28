@@ -5,7 +5,7 @@ mod observations;
 
 use crawler_core::{
     Outcome, PolicyEvaluator, PolicyRule, Purpose, RobotsParser, RobotsTagParser, RobotsTagSource,
-    SignalKind, SignalSet, SignalStatus,
+    SignalKind, SignalSet, SignalStatus, Timestamp,
 };
 use observations::{O_ALLOW, ai_only, conflicting_signals, obs, outcomes, present};
 
@@ -193,7 +193,10 @@ fn test_conflicting_signals_deny_wins_and_every_signal_is_listed() -> TestResult
     );
     assert_lists_every_source(&o_decision.reasons());
     assert_eq!(
-        o_decision.to_record().str_matched_rule,
+        o_decision
+            .to_record(Timestamp::parse("2026-10-27T00:00:01.000000Z")?)
+            .e_matched_rule
+            .as_str(),
         "tdmrep.reservation"
     );
     Ok(())
