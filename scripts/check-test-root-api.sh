@@ -11,7 +11,7 @@ sed "s|@CRAWLER_FETCH@|$ROOT/crates/crawler-fetch|" \
 cp "$ROOT/Cargo.lock" "$SCRATCH/Cargo.lock"
 # This names the API itself; no certificate or runtime construction is necessary.
 printf 'fn main() { let _ = crawler_fetch::ClientConfig::with_test_root; }\n' > "$SCRATCH/src/main.rs"
-if OUTPUT="$(CARGO_TARGET_DIR="$ROOT/target/test-root-api" cargo check --offline --manifest-path "$SCRATCH/Cargo.toml" 2>&1)"; then
+if OUTPUT="$(CARGO_TERM_COLOR=never CARGO_TARGET_DIR="$ROOT/target/test-root-api" cargo check --color never --offline --manifest-path "$SCRATCH/Cargo.toml" 2>&1)"; then
   if [[ "$CASE" != enabled ]]; then
     echo 'check-test-root-api: production unexpectedly exposes with_test_root'
     exit 1
