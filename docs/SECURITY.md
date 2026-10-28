@@ -55,3 +55,34 @@ See `crates/crawler-fetch`.
 - **Isolation:** no proxies, no retries, no connection pool, no referer.
 - **Test policy:** the loopback-only policy exists only with the `test-policy` feature.
   `scripts/check-no-test-policy.sh` and its self-test guard that crawlerd never enables it.
+
+### TLS end-to-end test coverage (issue #8)
+
+`cargo test -p crawler-fetch --features test-policy --locked --test tls_redirects` exercises
+real TLS on loopback through SafeHttpClient and its reqwest redirect policy. The test harness
+creates fresh CA keys and signed server leaves entirely in memory; no certificate, private key,
+or OS trust-store modification is committed or required. The TLS listener lives in integration
+test support, alongside the existing plaintext mock-site, and is not part of mock-site's library.
+
+The scenarios cover HTTPS-to-HTTP refusal with the typed downgrade error and zero plaintext
+requests; successful HTTPS-to-HTTPS redirects with recorded hops; an untrusted leaf signed by a
+different generated root (`UnknownIssuer`); hostname mismatch (typed certificate-name error);
+matching-name success followed by wrong-name refusal on the same SafeHttpClient; redacted errors;
+and a downgraded robots.txt becoming unreachable/redirect_refused and denying the crawl.
+Credentials in requested URLs are refused before TLS; the redaction test checks that path too.
+The socket-dependent mutation script disables the downgrade branch temporarily, requires the
+end-to-end assertion to fail, restores the source even on error, and rechecks the original test.
+
+Extra test roots are compiled only under `test-policy`, using `tls_certs_merge` so reqwest keeps
+its production platform verifier. Certificate and hostname verification remain enabled. The
+feature also exposes a last-transport-error diagnostic with reqwest's URL removed, so tests can
+assert the underlying rustls certificate error rather than accepting any connection failure.
+This diagnostic is for sequential test assertions; it holds only the last failure per client.
+Neither API exists in the default build. The default-build compile-negative test and the guard
+script self-test verify root API absence/presence as well as rejecting feature-enabled binaries.
+
+Linux behavior is verified only by CI on `ubuntu-24.04`; local macOS socket results must be
+recorded separately. Adding the scenarios does not itself establish that either platform has
+passed: consult the run results for the tested commit. These tests do not cover real public CAs,
+HSTS, certificate pinning, OCSP/revocation behavior, TLS version/cipher policy, or plain HTTP
+origin confidentiality. Receipts record observations and do not prove legality.

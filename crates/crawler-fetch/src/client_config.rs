@@ -11,6 +11,9 @@ use crate::policy_choice::PolicyChoice;
 /// Identity, address policy, limits, resolver, and clock for a client.
 #[derive(Clone)]
 pub struct ClientConfig {
+    /// Additional root trusted only by the test-policy build.
+    #[cfg(feature = "test-policy")]
+    pub(crate) opt_o_test_root: Option<reqwest::Certificate>,
     /// Declared crawler identity; its User-Agent is sent on every request.
     pub o_identity: CrawlerIdentity,
     /// Address policy selection.
@@ -27,6 +30,8 @@ impl ClientConfig {
     /// Creates a production configuration: production policy, default limits, system resolver.
     pub fn new(o_identity: CrawlerIdentity) -> Self {
         Self {
+            #[cfg(feature = "test-policy")]
+            opt_o_test_root: None,
             o_identity,
             e_policy: PolicyChoice::Production,
             o_limits: FetchLimits::default(),
@@ -38,6 +43,13 @@ impl ClientConfig {
     /// Returns the configuration with the loopback test policy (refused without `test-policy`).
     pub fn with_test_policy(mut self) -> Self {
         self.e_policy = PolicyChoice::LoopbackForTests;
+        self
+    }
+
+    /// Returns the configuration with an extra test root, retaining platform verification.
+    #[cfg(feature = "test-policy")]
+    pub fn with_test_root(mut self, o_root: reqwest::Certificate) -> Self {
+        self.opt_o_test_root = Some(o_root);
         self
     }
 

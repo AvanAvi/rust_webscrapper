@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Runs the socket-dependent downgrade mutation and restores the guard on every exit.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+GUARD=crates/crawler-fetch/src/redirect_guard.rs
+BACKUP="$(mktemp)"
+cp "$GUARD" "$BACKUP"
+trap 'cp "$BACKUP" "$GUARD"; rm -f "$BACKUP"' EXIT
+TEST=test_https_to_http_redirect_is_refused_without_plaintext_request
+COMMAND=(cargo test -p crawler-fetch --features test-policy --locked --test tls_redirects "$TEST" -- --exact)
+"${COMMAND[@]}" 2>&1 | tee /tmp/issue-8-downgrade-before.log
+python3 - "$GUARD" <<'PY'
+import pathlib, sys
+path_guard = pathlib.Path(sys.argv[1])
+str_source = path_guard.read_text()
+str_original = 'if url_from.scheme() == "https" && url_to.scheme() == "http" {'
+if str_source.count(str_original) != 1:
+    raise SystemExit('expected exactly one downgrade branch')
+path_guard.write_text(str_source.replace(str_original, str_original.replace('"http"', '"disabled-http"')))
+PY
+set +e
+"${COMMAND[@]}" 2>&1 | tee /tmp/issue-8-downgrade-mutated.log
+STATUS=${PIPESTATUS[0]}
+set -e
+cp "$BACKUP" "$GUARD"
+if [[ "$STATUS" -ne 101 ]] || ! grep -q 'downgrade must fail' /tmp/issue-8-downgrade-mutated.log; then
+  echo "mutation check: expected the downgrade assertion to fail; exit was $STATUS"
+  exit 1
+fi
+"${COMMAND[@]}" 2>&1 | tee /tmp/issue-8-downgrade-restored.log
+echo 'mutation check: original passed, disabled branch failed at the downgrade assertion, restored passed'
