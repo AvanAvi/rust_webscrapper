@@ -44,7 +44,7 @@ The first lockfile was resolved against a stale local index and picked `quote` 1
 
 No RFC 8785 crate is on the approved list, so `CanonicalEncoder` implements it directly. It is tested against the RFC 8785 section 3.2.3 sorting vector and the section 3.2.4 byte vector (minus its float member). The integer limit of ±(2^53-1) cites RFC 7493 (I-JSON) section 2.2; RFC 8785 section 3.1 requires I-JSON input. Floats are rejected rather than formatted.
 
-## Issue #8: TLS integration-test dependencies
+## TLS integration-test dependencies
 
 Approved by the owner on 2026-10-28. All three direct entries are exactly pinned under
 `crawler-fetch`'s `[dev-dependencies]`, with default features disabled. The TLS listener and

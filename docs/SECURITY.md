@@ -56,7 +56,7 @@ See `crates/crawler-fetch`.
 - **Test policy:** the loopback-only policy exists only with the `test-policy` feature.
   `scripts/check-no-test-policy.sh` and its self-test guard that crawlerd never enables it.
 
-### TLS end-to-end test coverage (issue #8)
+### TLS end-to-end test coverage
 
 `cargo test -p crawler-fetch --features test-policy --locked --test tls_redirects` exercises
 real TLS on loopback through SafeHttpClient and its reqwest redirect policy. The test harness

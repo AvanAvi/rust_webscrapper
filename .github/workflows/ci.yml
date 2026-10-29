@@ -29,6 +29,12 @@ jobs:
       - run: ./scripts/check-no-test-policy.sh
       - run: ./scripts/check-no-test-policy-selftest.sh
       - run: ./scripts/check-fetch-deps.sh
+      # Receipt tests need crawler-core's ledger-seal feature; run them explicitly as well.
+      - run: cargo test -p crawler-core --features ledger-seal --locked
+      - run: ./scripts/check-seal-gate.sh
+      - run: ./scripts/check-seal-gate-selftest.sh
+      - run: ./scripts/check-no-issue-refs.sh
+      - run: ./scripts/check-no-issue-refs-selftest.sh
       - run: cargo run --locked -p convention-check
       - run: ./scripts/lint-probe.sh
 

@@ -14,7 +14,6 @@ use super::certificates::{BoxError, Certificates};
 pub fn client(o_roots: &Certificates) -> Result<SafeHttpClient, BoxError> {
     let o_identity = CrawlerIdentity::new(
         "proofcrawl",
-        "0.1.0",
         "https://crawler.example/contact",
         Purpose::AiTrain,
     )?;

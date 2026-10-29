@@ -4,7 +4,7 @@
 mod sample;
 
 use crawler_core::{CanonicalEncoder, Hasher, Receipt, ReceiptSubmission};
-use sample::{BoxError, sample_clock, sample_submission};
+use sample::{BoxError, STR_PINNED_CRAWLER_VERSION, sample_clock, sample_submission};
 use serde_json::{Value, json};
 
 /// Result type for tests that use `?` instead of `expect`.
@@ -13,7 +13,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 /// Canonical encoding of `sample_receipt()`; any format change must update this deliberately.
 const STR_EXPECTED_CANONICAL: &str = include_str!("fixtures/sample_receipt.canonical.json");
 /// SHA-256 of `STR_EXPECTED_CANONICAL`, cross-checked with `shasum -a 256`.
-const STR_EXPECTED_HASH: &str = "530c7e6f53c510bea6356b836a0919638c801606219b395402d37f986b3c159d";
+const STR_EXPECTED_HASH: &str = "393d4cb65ba44687a52f85978671f7048087cb755702fc8da5d4df631c32555b";
 
 /// Returns the sample submission sealed as ledger entry 7, recorded 5 ms after the fetch.
 fn sample_receipt() -> Result<Receipt, BoxError> {
@@ -43,6 +43,22 @@ fn test_fixed_receipt_vector() -> TestResult {
     assert_eq!(canonical(&o_receipt)?, STR_EXPECTED_CANONICAL.trim_end());
     let by_hash = o_receipt.content_hash(&CanonicalEncoder::new(), &Hasher::new())?;
     assert_eq!(Hasher::new().to_hex(&by_hash), STR_EXPECTED_HASH);
+    Ok(())
+}
+
+#[test]
+fn test_frozen_vector_survives_version_bump() -> TestResult {
+    assert_ne!(
+        STR_PINNED_CRAWLER_VERSION,
+        env!("CARGO_PKG_VERSION"),
+        "the pin must differ from the build version, or this test proves nothing"
+    );
+    let o_receipt = sample_receipt()?;
+    assert_eq!(
+        o_receipt.submission().o_crawler.version(),
+        STR_PINNED_CRAWLER_VERSION
+    );
+    assert_eq!(canonical(&o_receipt)?, STR_EXPECTED_CANONICAL.trim_end());
     Ok(())
 }
 

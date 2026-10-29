@@ -24,7 +24,7 @@ fn rejected(o_submission: ReceiptSubmission, str_part: &str) -> Result<bool, Box
 }
 
 #[test]
-fn test_worker_cannot_supply_recorded_at_or_sequence() -> TestResult {
+fn test_worker_stamp_fields_are_rejected() -> TestResult {
     let o_submission = sample_submission(&sample_clock()?)?;
     for (str_field, e_value) in [
         ("recorded_at", json!("2020-01-01T00:00:00.000000Z")),
@@ -151,11 +151,6 @@ fn test_crawler_version_comes_from_the_build() -> TestResult {
         o_crawler.version(),
         workspace_version()?,
         "workspace manifest version"
-    );
-    let o_sealed = sample_submission(&sample_clock()?)?;
-    assert_eq!(
-        o_sealed.o_crawler, o_crawler,
-        "submissions carry the build record"
     );
     Ok(())
 }

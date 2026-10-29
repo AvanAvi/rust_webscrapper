@@ -20,7 +20,8 @@ fi
 LOCK_FLAG=()
 if [[ $# -eq 0 ]]; then LOCK_FLAG=(--locked); fi
 
-if ! OUTPUT="$(cargo tree ${LOCK_FLAG[@]+"${LOCK_FLAG[@]}"} --manifest-path "$MANIFEST" -p "$PACKAGE" -e normal,features -i crawler-fetch 2>&1)"; then
+# No color: escape codes in the output would sit between the words matched below.
+if ! OUTPUT="$(CARGO_TERM_COLOR=never cargo tree --color never ${LOCK_FLAG[@]+"${LOCK_FLAG[@]}"} --manifest-path "$MANIFEST" -p "$PACKAGE" -e normal,features -i crawler-fetch 2>&1)"; then
   if grep -q "did not match any packages" <<<"$OUTPUT"; then
     echo "check-no-test-policy: $PACKAGE does not depend on crawler-fetch"
     exit 0

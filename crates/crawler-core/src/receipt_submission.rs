@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[cfg(feature = "ledger-seal")]
 use crate::clock::Clock;
 use crate::core_error::CoreError;
 use crate::crawler_record::CrawlerRecord;
@@ -11,6 +12,7 @@ use crate::fetch_failure::FetchFailure;
 use crate::fetch_record::FetchRecord;
 use crate::identity_record::IdentityRecord;
 use crate::outcome::Outcome;
+#[cfg(feature = "ledger-seal")]
 use crate::receipt::Receipt;
 use crate::target_record::TargetRecord;
 
@@ -18,6 +20,18 @@ use crate::target_record::TargetRecord;
 /// `recorded_at`: only the server sets those, in `seal`. Decoding rejects them as unknown
 /// fields, so a worker cannot supply them, and they sit outside the submission, which is the
 /// part a worker could sign.
+///
+/// `seal` exists only with the `ledger-seal` feature, which only crawler-ledger enables
+/// (`scripts/check-seal-gate.sh`), so appending to the ledger is the only way to seal a receipt.
+/// Without the feature, calling it does not compile:
+#[cfg_attr(
+    not(feature = "ledger-seal"),
+    doc = "```compile_fail,E0599\nfn stamp(o_submission: crawler_core::ReceiptSubmission, o_clock: &dyn crawler_core::Clock) {\n    let _ = o_submission.seal(1, o_clock);\n}\n```"
+)]
+#[cfg_attr(
+    feature = "ledger-seal",
+    doc = "```\nfn stamp(o_submission: crawler_core::ReceiptSubmission, o_clock: &dyn crawler_core::Clock) {\n    let _ = o_submission.seal(1, o_clock);\n}\n```"
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReceiptSubmission {
@@ -62,6 +76,7 @@ pub struct ReceiptSubmission {
 
 impl ReceiptSubmission {
     /// Stamps the submission with the server's sequence and clock and validates the result.
+    #[cfg(feature = "ledger-seal")]
     pub fn seal(self, u_sequence: u64, o_clock: &dyn Clock) -> Result<Receipt, CoreError> {
         let o_receipt = Receipt::new(u_sequence, o_clock.timestamp()?, self);
         o_receipt.validate()?;

@@ -1,6 +1,7 @@
 //! Describes who the crawler declares itself to be.
 
 use crate::core_error::CoreError;
+use crate::crawler_record::CrawlerRecord;
 use crate::identity_record::IdentityRecord;
 use crate::purpose::Purpose;
 use crate::url_normalizer::UrlNormalizer;
@@ -38,7 +39,7 @@ const U_MAX_TOKEN_BYTES: usize = 64;
 pub struct CrawlerIdentity {
     /// RFC 9309 product token (letters, `-`, `_`), matched against robots.txt groups.
     str_product_token: String,
-    /// Crawler version.
+    /// Crawler version, taken from the build so it always equals the receipt's `crawler.version`.
     str_version: String,
     /// Normalized contact URL.
     str_contact_url: String,
@@ -47,21 +48,20 @@ pub struct CrawlerIdentity {
 }
 
 impl CrawlerIdentity {
-    /// Creates an identity, rejecting malformed tokens, other crawlers' tokens, and bad contacts.
+    /// Creates an identity for the running build, rejecting malformed tokens, other crawlers'
+    /// tokens, and bad contacts. The version is the build's, never an argument.
     pub fn new(
         str_product_token: &str,
-        str_version: &str,
         str_contact_url: &str,
         e_purpose: Purpose,
     ) -> Result<Self, CoreError> {
         Self::check_token(str_product_token)?;
-        Self::check_version(str_version)?;
         let str_contact = UrlNormalizer::new()
             .normalize_key(str_contact_url)
             .map_err(|err_url| Self::invalid(&format!("contact URL: {err_url}")))?;
         Ok(Self {
             str_product_token: str_product_token.to_owned(),
-            str_version: str_version.to_owned(),
+            str_version: CrawlerRecord::from_build().version().to_owned(),
             str_contact_url: str_contact,
             e_purpose,
         })
@@ -117,20 +117,6 @@ impl CrawlerIdentity {
             return Err(Self::invalid("product token belongs to another crawler"));
         }
         Ok(())
-    }
-
-    /// Rejects empty or unusual version strings.
-    fn check_version(str_version: &str) -> Result<(), CoreError> {
-        let b_ok = !str_version.is_empty()
-            && str_version.len() <= 32
-            && str_version
-                .bytes()
-                .all(|u_b| u_b.is_ascii_alphanumeric() || matches!(u_b, b'.' | b'-' | b'+'));
-        if b_ok {
-            Ok(())
-        } else {
-            Err(Self::invalid("version must be 1-32 of [A-Za-z0-9.+-]"))
-        }
     }
 
     /// Builds the identity error.

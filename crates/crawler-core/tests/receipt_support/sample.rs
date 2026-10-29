@@ -14,6 +14,10 @@ use time::OffsetDateTime;
 /// Boxed error for helpers.
 pub type BoxError = Box<dyn std::error::Error>;
 
+/// Crawler version the frozen vector pins. It differs from the build version on purpose, so a
+/// workspace version bump never changes the vector and the pin is visibly not the build's.
+pub const STR_PINNED_CRAWLER_VERSION: &str = "0.1.0-frozen";
+
 /// robots.txt body of the sample signal.
 const STR_ROBOTS: &str = "User-agent: *\nAllow: /\n";
 
@@ -65,11 +69,19 @@ fn sample_fetch(o_clock: &FakeClock) -> Result<FetchRecord, BoxError> {
     })
 }
 
+/// Returns the pinned crawler record, decoded because only the build can construct one.
+pub fn pinned_crawler() -> Result<CrawlerRecord, BoxError> {
+    Ok(serde_json::from_value(serde_json::json!({
+        "name": "proofcrawl",
+        "version": STR_PINNED_CRAWLER_VERSION,
+    }))?)
+}
+
 /// Returns the declared crawler identity.
 fn sample_identity() -> IdentityRecord {
     IdentityRecord {
-        str_user_agent: String::from(
-            "proofcrawl/0.1.0 (+https://crawler.example/contact; purpose=ai-train)",
+        str_user_agent: format!(
+            "proofcrawl/{STR_PINNED_CRAWLER_VERSION} (+https://crawler.example/contact; purpose=ai-train)"
         ),
         str_product_token: String::from("proofcrawl"),
         e_purpose: Purpose::AiTrain,
@@ -101,7 +113,7 @@ pub fn sample_submission(o_clock: &FakeClock) -> Result<ReceiptSubmission, BoxEr
         uuid_task_id: o_ids.next_id(),
         u_lease_epoch: 3,
         uuid_worker_id: o_ids.next_id(),
-        o_crawler: CrawlerRecord::from_build(),
+        o_crawler: pinned_crawler()?,
         o_identity: sample_identity(),
         o_target: sample_target(),
         str_signal_set_id: o_set.set_id(&vec_o_signals)?,
