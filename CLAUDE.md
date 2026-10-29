@@ -14,6 +14,11 @@ cargo test -p crawler-fetch --features test-policy --locked   # mock-site scenar
 ./scripts/check-no-test-policy.sh               # crawlerd never enables test-policy
 ./scripts/check-no-test-policy-selftest.sh      # proves that check fails on a binary enabling it
 ./scripts/check-fetch-deps.sh                   # axum never enters crawler-fetch's normal deps
+cargo test -p crawler-core --features ledger-seal --locked   # receipt tests (need the seal feature)
+./scripts/check-seal-gate.sh                    # only crawler-ledger can seal receipts; test count floor
+./scripts/check-seal-gate-selftest.sh           # proves that guard fails on each broken input
+./scripts/check-no-issue-refs.sh                # no issue numbers in committed files
+./scripts/check-no-issue-refs-selftest.sh       # proves that guard fails on each reference form
 cargo audit && cargo deny check
 ```
 
