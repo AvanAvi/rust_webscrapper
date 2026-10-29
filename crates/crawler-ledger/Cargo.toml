@@ -8,6 +8,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# The only crate allowed to enable ledger-seal (scripts/check-seal-gate.sh).
+crawler-core = { path = "../crawler-core", features = ["ledger-seal"] }
 
 [lints]
 workspace = true

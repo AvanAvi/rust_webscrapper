@@ -424,6 +424,9 @@ dependencies = [
 [[package]]
 name = "crawler-ledger"
 version = "0.1.0"
+dependencies = [
+ "crawler-core",
+]
 
 [[package]]
 name = "crawler-server"

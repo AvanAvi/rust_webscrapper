@@ -36,6 +36,7 @@ pub struct Receipt {
 
 impl Receipt {
     /// Creates a receipt of the current schema version; `ReceiptSubmission::seal` is the caller.
+    #[cfg(feature = "ledger-seal")]
     pub(crate) fn new(
         u_sequence: u64,
         dt_recorded_at: Timestamp,

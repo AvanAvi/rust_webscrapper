@@ -19,6 +19,11 @@ receipt = { schema_version, sequence, recorded_at, submission }
 - `ReceiptSubmission::seal(sequence, server_clock)` is the only way to make a `Receipt`: it
   takes `recorded_at` from the server's `Clock`, then runs `Receipt::validate`. `Receipt` fields
   are private.
+- `seal` exists only with crawler-core's `ledger-seal` feature, which only crawler-ledger enables,
+  so ledger append is the only way to seal a receipt. `scripts/check-seal-gate.sh` enforces this
+  (feature ownership, a `compile_fail` doctest, and a floor on crawler-core's test count, because
+  Cargo silently skips test targets whose required features are off). The gate prevents
+  accidental use inside this workspace; it is not a security boundary.
 - `Receipt::validate` enforces:
   - `schema_version` is 3;
   - `signal_set_id` is a lowercase SHA-256 hex digest;
@@ -50,19 +55,20 @@ never stored. The changes:
 
 `tests/receipt_schema.rs` pins a fingerprint of the receipt fields, the stored observation
 fields, the set record shape, and every enum value name to this version; it fails when one
-changes without the other. The frozen vector also embeds `crawler.version`, so a workspace
-version bump re-freezes it.
+changes without the other. The frozen vector pins its own `crawler.version` (`0.1.0-frozen`,
+deliberately not the build version), so a workspace version bump does not change it; production
+receipts always carry the build version (`CrawlerRecord::from_build`).
 
 ## Example
 
 The frozen test vector (`crates/crawler-core/tests/fixtures/sample_receipt.canonical.json`),
-SHA-256 `530c7e6f53c510bea6356b836a0919638c801606219b395402d37f986b3c159d` (cross-checked with
+SHA-256 `393d4cb65ba44687a52f85978671f7048087cb755702fc8da5d4df631c32555b` (cross-checked with
 `shasum -a 256`). Its decision comes from the real `PolicyEvaluator` (`no_reservation`), and its
 one observation's excerpt, `text_bytes` and `body_bytes_seen` all describe the same 23-byte
 robots.txt. Canonical bytes, one line, no trailing newline:
 
 ```json
-{"recorded_at":"2026-10-26T12:34:56.265000Z","schema_version":3,"sequence":7,"submission":{"crawler":{"name":"proofcrawl","version":"0.1.0"},"decision":{"decided_at":"2026-10-26T12:34:56.000000Z","matched_rule":"no_reservation","outcome":"allow","policy_version":"v1","reasons":["robots.txt at https://example.com/robots.txt allows this URL for user-agent group \"*\" and states no Content-Signal objection to AI training."]},"fetch":{"body_bytes":13,"body_sha256":"b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628","content_type":"text/html; charset=utf-8","finished_at":"2026-10-26T12:34:56.260000Z","http_status":200,"redirects":[{"status":301,"url":"http://example.com/a"}],"resolved_ips":["93.184.215.14"],"retry_after_ms":null,"started_at":"2026-10-26T12:34:56.010000Z"},"fetch_failure":null,"identity":{"contact_url":"https://crawler.example/contact","product_token":"proofcrawl","purpose":"ai_train","user_agent":"proofcrawl/0.1.0 (+https://crawler.example/contact; purpose=ai-train)"},"job_id":"00000000-0000-0000-0000-000000000002","lease_epoch":3,"receipt_id":"00000000-0000-0000-0000-000000000001","signal_set_id":"676a27ce4731261023b72a020561ee5c7d02b8055a55746cee62591d032f6dc5","target":{"depth":1,"host":"example.com","url_final":"https://example.com/a","url_normalized":"http://example.com/a","url_requested":"HTTP://Example.com:80/a"},"task_id":"00000000-0000-0000-0000-000000000003","worker_id":"00000000-0000-0000-0000-000000000004"}}
+{"recorded_at":"2026-10-26T12:34:56.265000Z","schema_version":3,"sequence":7,"submission":{"crawler":{"name":"proofcrawl","version":"0.1.0-frozen"},"decision":{"decided_at":"2026-10-26T12:34:56.000000Z","matched_rule":"no_reservation","outcome":"allow","policy_version":"v1","reasons":["robots.txt at https://example.com/robots.txt allows this URL for user-agent group \"*\" and states no Content-Signal objection to AI training."]},"fetch":{"body_bytes":13,"body_sha256":"b633a587c652d02386c4f16f8c6f6aab7352d97f16367c3c40576214372dd628","content_type":"text/html; charset=utf-8","finished_at":"2026-10-26T12:34:56.260000Z","http_status":200,"redirects":[{"status":301,"url":"http://example.com/a"}],"resolved_ips":["93.184.215.14"],"retry_after_ms":null,"started_at":"2026-10-26T12:34:56.010000Z"},"fetch_failure":null,"identity":{"contact_url":"https://crawler.example/contact","product_token":"proofcrawl","purpose":"ai_train","user_agent":"proofcrawl/0.1.0-frozen (+https://crawler.example/contact; purpose=ai-train)"},"job_id":"00000000-0000-0000-0000-000000000002","lease_epoch":3,"receipt_id":"00000000-0000-0000-0000-000000000001","signal_set_id":"676a27ce4731261023b72a020561ee5c7d02b8055a55746cee62591d032f6dc5","target":{"depth":1,"host":"example.com","url_final":"https://example.com/a","url_normalized":"http://example.com/a","url_requested":"HTTP://Example.com:80/a"},"task_id":"00000000-0000-0000-0000-000000000003","worker_id":"00000000-0000-0000-0000-000000000004"}}
 ```
 
 The same receipt indented for reading (not canonical):
@@ -75,7 +81,7 @@ The same receipt indented for reading (not canonical):
   "submission": {
     "crawler": {
       "name": "proofcrawl",
-      "version": "0.1.0"
+      "version": "0.1.0-frozen"
     },
     "decision": {
       "decided_at": "2026-10-26T12:34:56.000000Z",
@@ -109,7 +115,7 @@ The same receipt indented for reading (not canonical):
       "contact_url": "https://crawler.example/contact",
       "product_token": "proofcrawl",
       "purpose": "ai_train",
-      "user_agent": "proofcrawl/0.1.0 (+https://crawler.example/contact; purpose=ai-train)"
+      "user_agent": "proofcrawl/0.1.0-frozen (+https://crawler.example/contact; purpose=ai-train)"
     },
     "job_id": "00000000-0000-0000-0000-000000000002",
     "lease_epoch": 3,
@@ -229,5 +235,5 @@ the ledger row and checkpoints (F6).
   receipts must keep them (F6). Signal-file bodies and header texts are still kept only while
   the collector's cache holds them, or until evicted; F6 must take references for every hash a
   stored receipt reaches.
-- `CrawlerIdentity` still takes its User-Agent version as an argument; it can differ from
-  `crawler.version`. Making the User-Agent use the build version too is a one-line follow-up.
+- The User-Agent version is the build version: `CrawlerIdentity::new` takes no version
+  argument, so `identity.user_agent` always names the same version as `crawler.version`.

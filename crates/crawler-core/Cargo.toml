@@ -7,6 +7,11 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+# Exposes `ReceiptSubmission::seal`. Only crawler-ledger may enable it, so ledger append is the
+# only way to seal a receipt; scripts/check-seal-gate.sh enforces this.
+ledger-seal = []
+
 [dependencies]
 scraper.workspace = true
 serde.workspace = true
@@ -19,6 +24,24 @@ uuid.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+
+# These targets seal receipts. Cargo skips them silently when the feature is off, so the guard
+# script checks they still run and that the test count stays at or above its committed floor.
+[[test]]
+name = "receipt_encoding"
+required-features = ["ledger-seal"]
+
+[[test]]
+name = "receipt_rules"
+required-features = ["ledger-seal"]
+
+[[test]]
+name = "receipt_schema"
+required-features = ["ledger-seal"]
+
+[[test]]
+name = "receipt_size"
+required-features = ["ledger-seal"]
 
 [lints]
 workspace = true
