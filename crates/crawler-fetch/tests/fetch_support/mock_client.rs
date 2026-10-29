@@ -60,7 +60,6 @@ pub async fn start() -> Result<(MockSite, SafeHttpClient), BoxError> {
 pub async fn start_with_total(dur_total: Duration) -> Result<(MockSite, SafeHttpClient), BoxError> {
     let o_identity = CrawlerIdentity::new(
         "proofcrawl",
-        "0.1.0",
         "https://crawler.example/contact",
         Purpose::AiTrain,
     )?;

@@ -17,7 +17,6 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 fn production_client() -> Result<SafeHttpClient, Box<dyn std::error::Error>> {
     let o_identity = CrawlerIdentity::new(
         "proofcrawl",
-        "0.1.0",
         "https://crawler.proofcrawl.dev/contact",
         Purpose::AiTrain,
     )?;

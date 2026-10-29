@@ -14,7 +14,7 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 
 /// Returns an identity with the given contact URL.
 fn identity(str_contact: &str) -> Result<CrawlerIdentity, crawler_core::CoreError> {
-    CrawlerIdentity::new("proofcrawl", "0.1.0", str_contact, Purpose::AiTrain)
+    CrawlerIdentity::new("proofcrawl", str_contact, Purpose::AiTrain)
 }
 
 /// Returns a redirect guard over the production policy.

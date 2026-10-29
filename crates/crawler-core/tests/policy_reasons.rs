@@ -1,9 +1,9 @@
 //! Exact wording of denied-decision reasons and crawler identity rules.
 
 use crawler_core::{
-    CoreError, CrawlerIdentity, ParsedSignal, PolicyEvaluator, Purpose, RobotsParser,
-    SignalContext, SignalKind, SignalObservation, SignalParser, SignalSet, SignalStatus,
-    TdmrepParser, TdmrepSource, Timestamp,
+    CoreError, CrawlerIdentity, CrawlerRecord, ParsedSignal, PolicyEvaluator, Purpose,
+    RobotsParser, SignalContext, SignalKind, SignalObservation, SignalParser, SignalSet,
+    SignalStatus, TdmrepParser, TdmrepSource, Timestamp,
 };
 
 /// Result type for tests that use `?` instead of `expect`.
@@ -67,13 +67,15 @@ fn test_reason_sentences_read_plainly() -> TestResult {
 fn test_identity_declares_token_contact_and_purpose() -> TestResult {
     let o_identity = CrawlerIdentity::new(
         "proofcrawl",
-        "0.1.0",
         "HTTPS://Crawler.Example/contact",
         Purpose::default(),
     )?;
     assert_eq!(
         o_identity.user_agent(),
-        "proofcrawl/0.1.0 (+https://crawler.example/contact; purpose=ai_train)"
+        format!(
+            "proofcrawl/{} (+https://crawler.example/contact; purpose=ai_train)",
+            env!("CARGO_PKG_VERSION")
+        )
     );
     let o_record = o_identity.to_record();
     assert_eq!(
@@ -86,23 +88,42 @@ fn test_identity_declares_token_contact_and_purpose() -> TestResult {
 #[test]
 fn test_identity_rejects_spoofing_and_bad_values() {
     let vec_o_bad = [
-        ("Googlebot", "1.0", "https://x.example/"),
-        ("GPTBot", "1.0", "https://x.example/"),
-        ("*", "1.0", "https://x.example/"),
-        ("proof crawl", "1.0", "https://x.example/"),
-        ("proofcrawl2", "1.0", "https://x.example/"),
-        ("proofcrawl", "", "https://x.example/"),
-        ("proofcrawl", "1.0", "ftp://x.example/"),
-        ("proofcrawl", "1.0", "https://user:pw@x.example/"),
+        ("Googlebot", "https://x.example/"),
+        ("GPTBot", "https://x.example/"),
+        ("*", "https://x.example/"),
+        ("proof crawl", "https://x.example/"),
+        ("proofcrawl2", "https://x.example/"),
+        ("proofcrawl", "ftp://x.example/"),
+        ("proofcrawl", "https://user:pw@x.example/"),
     ];
-    for (str_token, str_version, str_contact) in vec_o_bad {
-        let res_identity =
-            CrawlerIdentity::new(str_token, str_version, str_contact, Purpose::AiTrain);
+    for (str_token, str_contact) in vec_o_bad {
+        let res_identity = CrawlerIdentity::new(str_token, str_contact, Purpose::AiTrain);
         assert!(
             matches!(res_identity, Err(CoreError::InvalidIdentity { .. })),
-            "{str_token} {str_version} {str_contact}"
+            "{str_token} {str_contact}"
         );
     }
+}
+
+#[test]
+fn test_user_agent_version_matches_crawler_version() -> TestResult {
+    let o_identity = CrawlerIdentity::new(
+        "proofcrawl",
+        "https://crawler.example/contact",
+        Purpose::AiTrain,
+    )?;
+    let o_crawler = CrawlerRecord::from_build();
+    let str_prefix = format!("{}/{} ", o_identity.product_token(), o_crawler.version());
+    assert!(
+        o_identity.user_agent().starts_with(&str_prefix),
+        "{} does not start with {str_prefix}",
+        o_identity.user_agent()
+    );
+    assert_eq!(
+        o_identity.to_record().str_user_agent,
+        o_identity.user_agent()
+    );
+    Ok(())
 }
 
 #[test]
