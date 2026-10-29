@@ -16,7 +16,8 @@ cp "$ROOT/scripts/fixtures/lint_probe.rs" "$SCRATCH/src/lib.rs"
   sed -n '/^\[workspace\.lints/,/^$/p' "$ROOT/Cargo.toml" | sed 's/^\[workspace\.lints/[lints/'
 } > "$SCRATCH/Cargo.toml"
 
-OUTPUT="$(cd "$SCRATCH" && cargo clippy --quiet -- -D warnings 2>&1 || true)"
+# No color: diagnostics are parsed below, and escape codes could split the lint names.
+OUTPUT="$(cd "$SCRATCH" && CARGO_TERM_COLOR=never cargo clippy --color never --quiet -- -D warnings 2>&1 || true)"
 
 EXPECTED=(cognitive_complexity too_many_lines too_many_arguments unwrap_used expect_used panic todo unsafe_code missing_docs)
 MISSING=0

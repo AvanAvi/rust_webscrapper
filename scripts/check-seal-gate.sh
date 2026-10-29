@@ -19,6 +19,11 @@
 #   check-seal-gate.sh check-doc DOC_OUTPUT_WITHOUT_FEATURE DOC_OUTPUT_WITH_FEATURE
 #   check-seal-gate.sh check-list LIST_OUTPUT FLOOR
 set -euo pipefail
+# Cargo colors its status lines when CARGO_TERM_COLOR=always (as in CI), which splits words such
+# as "Running" with escape codes. Every cargo call below also passes --color never, and the
+# check modes strip escape codes from their input before matching.
+export CARGO_TERM_COLOR=never
+ESC="$(printf '\033')"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FLOOR_FILE="$ROOT/scripts/fixtures/core-test-floor.txt"
 # Test targets that call seal; each must appear in the listing with the feature on.
@@ -33,6 +38,15 @@ usage() {
 fail() {
   echo "check-seal-gate: FAIL: $*"
   exit 1
+}
+
+# Copies a captured output file to the scratch directory without ANSI escape codes and prints
+# the copy's path.
+plain() {
+  local copy
+  copy="$SCRATCH/plain.$(basename "$1").$$.$RANDOM"
+  sed "s/${ESC}\[[0-9;]*m//g" "$1" >"$copy"
+  echo "$copy"
 }
 
 check_metadata() {
@@ -64,39 +78,45 @@ check_sources() {
 }
 
 check_doc() {
-  grep -E -q 'receipt_submission.*compile fail.* \.\.\. ok' "$1" ||
+  local off on
+  off="$(plain "$1")"
+  on="$(plain "$2")"
+  grep -E -q 'receipt_submission.*compile fail.* \.\.\. ok' "$off" ||
     fail "without ledger-seal, the compile_fail doctest did not run and pass"
-  grep -E -q 'receipt_submission.* \.\.\. ok' "$2" ||
+  grep -E -q 'receipt_submission.* \.\.\. ok' "$on" ||
     fail "with ledger-seal, the seal snippet did not compile and pass"
-  ! grep 'receipt_submission' "$2" | grep -q 'compile fail' ||
+  ! grep 'receipt_submission' "$on" | grep -q 'compile fail' ||
     fail "with ledger-seal, the compile_fail doctest is still present"
   echo "check-seal-gate: doc ok, seal fails to compile without the feature and compiles with it"
 }
 
 check_list() {
-  local count floor target
+  local count floor target listing
   floor="$2"
-  count="$(grep -c ': test$' "$1" || true)"
+  listing="$(plain "$1")"
+  count="$(grep -c ': test$' "$listing" || true)"
   if ((count < floor)); then
     fail "crawler-core lists $count tests with ledger-seal, below the floor of $floor"
   fi
   for target in $SEAL_TARGETS; do
-    grep -q "Running tests/$target.rs" "$1" || fail "test target $target did not run"
+    grep -F -q "Running tests/$target.rs" "$listing" || fail "test target $target did not run"
   done
   echo "check-seal-gate: count ok, $count tests (floor $floor), all seal targets ran"
 }
 
 full_run() {
   cd "$ROOT"
-  cargo metadata --locked --no-deps --format-version 1 >"$SCRATCH/metadata.json"
+  cargo metadata --color never --locked --no-deps --format-version 1 >"$SCRATCH/metadata.json"
   check_metadata "$SCRATCH/metadata.json"
   check_sources
-  cargo test --locked -p crawler-core --doc >"$SCRATCH/doc-off.txt" 2>&1 ||
+  cargo test --color never --locked -p crawler-core --doc -- --color never \
+    >"$SCRATCH/doc-off.txt" 2>&1 ||
     { cat "$SCRATCH/doc-off.txt"; fail "doctests without the feature failed"; }
-  cargo test --locked -p crawler-core --features ledger-seal --doc >"$SCRATCH/doc-on.txt" 2>&1 ||
+  cargo test --color never --locked -p crawler-core --features ledger-seal --doc -- --color never \
+    >"$SCRATCH/doc-on.txt" 2>&1 ||
     { cat "$SCRATCH/doc-on.txt"; fail "doctests with the feature failed"; }
   check_doc "$SCRATCH/doc-off.txt" "$SCRATCH/doc-on.txt"
-  cargo test --locked -p crawler-core --features ledger-seal --tests -- --list \
+  cargo test --color never --locked -p crawler-core --features ledger-seal --tests -- --list \
     >"$SCRATCH/list.txt" 2>&1 || { cat "$SCRATCH/list.txt"; fail "listing tests failed"; }
   check_list "$SCRATCH/list.txt" "$(tr -d '[:space:]' <"$FLOOR_FILE")"
   echo "check-seal-gate: all checks passed"

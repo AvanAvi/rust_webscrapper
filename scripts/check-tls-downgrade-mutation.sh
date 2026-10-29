@@ -9,7 +9,8 @@ LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tls-downgrade-mutation.XXXXXX")"
 cp "$GUARD" "$BACKUP"
 trap 'cp "$BACKUP" "$GUARD"; rm -f "$BACKUP"' EXIT
 TEST=test_https_to_http_redirect_is_refused_without_plaintext_request
-COMMAND=(cargo test -p crawler-fetch --features test-policy --locked --test tls_redirects "$TEST" -- --exact)
+# No color: the mutated run's output is searched for the assertion message.
+COMMAND=(env CARGO_TERM_COLOR=never cargo test --color never -p crawler-fetch --features test-policy --locked --test tls_redirects "$TEST" -- --exact --color never)
 "${COMMAND[@]}" 2>&1 | tee "$LOG_DIR/before.log"
 python3 - "$GUARD" <<'PY'
 import pathlib, sys

@@ -64,6 +64,11 @@ printf '%s\n' "$DOC_FAIL" >"$SCRATCH/doc-off.txt"
 printf '%s\n' "$DOC_PASS" >"$SCRATCH/doc-on.txt"
 printf 'test result: ok. 0 passed\n' >"$SCRATCH/doc-empty.txt"
 expect_pass check-doc "$SCRATCH/doc-off.txt" "$SCRATCH/doc-on.txt"
+# Colored test output, as libtest writes it to a terminal, must match too.
+ESC="$(printf '\033')"
+sed "s/ ok\$/ ${ESC}[32mok${ESC}[0m/" "$SCRATCH/doc-off.txt" >"$SCRATCH/doc-off-ansi.txt"
+sed "s/ ok\$/ ${ESC}[32mok${ESC}[0m/" "$SCRATCH/doc-on.txt" >"$SCRATCH/doc-on-ansi.txt"
+expect_pass check-doc "$SCRATCH/doc-off-ansi.txt" "$SCRATCH/doc-on-ansi.txt"
 expect_fail "compile_fail doctest did not run" check-doc "$SCRATCH/doc-empty.txt" "$SCRATCH/doc-on.txt"
 expect_fail "did not compile and pass" check-doc "$SCRATCH/doc-off.txt" "$SCRATCH/doc-empty.txt"
 expect_fail "compile_fail doctest is still present" check-doc "$SCRATCH/doc-off.txt" "$SCRATCH/doc-off.txt"
@@ -76,6 +81,11 @@ done >"$SCRATCH/list.txt"
 printf 'test_a: test\ntest_b: test\ntest_c: test\n' >>"$SCRATCH/list.txt"
 grep -v 'receipt_size' "$SCRATCH/list.txt" >"$SCRATCH/list-skipped.txt"
 expect_pass check-list "$SCRATCH/list.txt" 3
+# Cargo's colored status lines (CARGO_TERM_COLOR=always, as in CI) put escape codes around
+# "Running"; the listing must still match.
+sed "s/^     Running /${ESC}[1m${ESC}[92m     Running${ESC}[0m /" "$SCRATCH/list.txt" >"$SCRATCH/list-ansi.txt"
+grep -q "${ESC}" "$SCRATCH/list-ansi.txt" || { echo "SELF-TEST FAILED: no escape codes in the colored fixture"; exit 1; }
+expect_pass check-list "$SCRATCH/list-ansi.txt" 3
 expect_fail "below the floor of 4" check-list "$SCRATCH/list.txt" 4
 expect_fail "test target receipt_size did not run" check-list "$SCRATCH/list-skipped.txt" 3
 
