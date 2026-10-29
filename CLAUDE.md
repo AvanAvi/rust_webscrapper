@@ -19,6 +19,8 @@ cargo audit && cargo deny check
 
 Everything runs on the toolchain pinned in `rust-toolchain.toml` (1.99.1). Never override it with `RUSTUP_TOOLCHAIN`.
 
+Local Postgres for F6 onward: see `docs/DEVELOPMENT.md` (`scripts/dev-db.sh`; any reachable Postgres via `DATABASE_URL` works).
+
 ## Convention summary (full text: CONVENTIONS.md)
 
 - All logic lives in methods on structs. Free functions are allowed only for `main` and test code. Traits are used for injection (`Clock`, `IdSource`, `HttpFetcher`, `LedgerStore`, `SignalParser`).

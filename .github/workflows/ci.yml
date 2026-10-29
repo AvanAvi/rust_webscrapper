@@ -51,3 +51,39 @@ jobs:
         run: cargo install --locked "cargo-audit@${CARGO_AUDIT_VERSION}" "cargo-deny@${CARGO_DENY_VERSION}"
       - run: cargo audit
       - run: cargo deny check
+
+  # Local development Postgres: the same pinned image as docker-compose.dev.yml, with
+  # the throwaway credentials from .env.example. No Rust build.
+  dev-db:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18.6-bookworm
+        env:
+          POSTGRES_USER: proofcrawl
+          POSTGRES_PASSWORD: proofcrawl-dev-only
+          POSTGRES_DB: proofcrawl
+        ports:
+          - 127.0.0.1:55432:5432
+    env:
+      DEV_DB_TIMEOUT: "120"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: /bin/bash scripts/check-dev-db-config.sh
+      # Readiness check: pg_isready inside the service container, no host psql.
+      - name: readiness check (service container, DATABASE_URL honored)
+        env:
+          DATABASE_URL: postgres://proofcrawl:proofcrawl-dev-only@127.0.0.1:55432/proofcrawl
+          DEV_DB_CONTAINER: ${{ job.services.postgres.id }}
+        run: /bin/bash scripts/dev-db.sh status
+      - name: DATABASE_URL set, up starts no container
+        env:
+          DATABASE_URL: postgres://proofcrawl:proofcrawl-dev-only@127.0.0.1:55432/proofcrawl
+        run: |
+          /bin/bash scripts/dev-db.sh up
+          test -z "$(docker ps -a -q --filter label=com.docker.compose.project=proofcrawl-dev)"
+      # The service already holds 55432, so the compose container uses another loopback port.
+      - name: dev-db persistence test (compose)
+        env:
+          DEV_DB_PORT: "55433"
+        run: /bin/bash scripts/check-dev-db-persistence.sh
